@@ -1,9 +1,17 @@
-const { app, BrowserWindow, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, dialog } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const hiddenFiles = require("./electron/services/hiddenFiles.cjs");
 
+const fileAssociation = require(
+  "./electron/services/fileAssociation.cjs",
+);
+const thumbnailService = require(
+  "./electron/services/thumbnailService.cjs",
+);
+const previewService = require("./electron/services/previewService.cjs");
+const detailsService = require("./electron/services/detailsService.cjs");
 
 // ============================================================
 // Storage Management Services
@@ -27,6 +35,12 @@ function createWindow(initialPath = null) {
       contextIsolation: true,
       nodeIntegration: false,
     },
+  });
+
+  win.webContents.openDevTools();
+
+  win.webContents.on("console-message", (event, level, message, line, sourceId) => {
+    console.log(`[Renderer Console] [Level ${level}] ${message} (at ${sourceId}:${line})`);
   });
 
   const hash = initialPath
@@ -605,6 +619,169 @@ ipcMain.handle("get-file-info", async (event, filePath) => {
   }
 });
 
+
+
+// ============================================================
+// Thumbnail UI
+// ============================================================
+
+ipcMain.handle(
+  "thumbnail:get-data-url",
+  async (event, filePath, options = {}) => {
+    try {
+      return await thumbnailService.generateThumbnailDataURL(
+        filePath,
+        options,
+      );
+    } catch (error) {
+      console.error(
+        "Thumbnail generation failed:",
+        error,
+      );
+
+      return {
+        success: false,
+        path: filePath,
+        error: error.message,
+      };
+    }
+  },
+);
+
+ipcMain.handle(
+  "thumbnail:is-supported",
+  async (event, filePath) => {
+    try {
+      return {
+        success: true,
+        supported:
+          thumbnailService.isThumbnailSupported(
+            filePath,
+          ),
+      };
+    } catch (error) {
+      console.error(
+        "Thumbnail support check failed:",
+        error,
+      );
+
+      return {
+        success: false,
+        supported: false,
+        error: error.message,
+      };
+    }
+  },
+);
+
+
+
+
+
+
+
+// ============================================================
+// Details Pane
+// ============================================================
+
+ipcMain.handle(
+  "details-pane:get",
+  async (event, filePath) => {
+    try {
+      return await detailsService.getDetailsPaneData(
+        filePath,
+      );
+    } catch (error) {
+      console.error(
+        "Details pane failed:",
+        error,
+      );
+
+      return {
+        success: false,
+        path: filePath,
+        error: error.message,
+      };
+    }
+  },
+);
+
+
+
+
+
+// ============================================================
+// Preview Pane
+// ============================================================
+
+ipcMain.handle(
+  "preview:get",
+  async (event, filePath) => {
+    try {
+      return await previewService.getPreview(filePath);
+    } catch (error) {
+      console.error(
+        "Preview failed:",
+        error,
+      );
+
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  },
+);
+
+ipcMain.handle(
+  "preview:get-metadata",
+  async (event, filePath) => {
+    try {
+      return await previewService.getPreviewMetadata(
+        filePath,
+      );
+    } catch (error) {
+      console.error(
+        "Preview metadata failed:",
+        error,
+      );
+
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  },
+);
+
+ipcMain.handle(
+  "preview:is-supported",
+  async (event, filePath) => {
+    try {
+      return {
+        success: true,
+        supported:
+          previewService.isPreviewSupported(
+            filePath,
+          ),
+      };
+    } catch (error) {
+      console.error(
+        "Preview support check failed:",
+        error,
+      );
+
+      return {
+        success: false,
+        supported: false,
+        error: error.message,
+      };
+    }
+  },
+);
+
+
+
 // Recursively calculate a folder's total size (files + subfolder count)
 // Isse Properties dialog me folder ka size dikha sakte hain, jaisa Windows
 // Explorer "Calculating size..." dikha kar karta hai.
@@ -745,6 +922,133 @@ ipcMain.handle("open-item", async (event, itemPath) => {
     };
   }
 });
+
+
+ipcMain.handle("choose-folder", async (event) => {
+  try {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const result = await dialog.showOpenDialog(win, {
+      properties: ["openDirectory"],
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return { success: false };
+    }
+    return { success: true, path: result.filePaths[0] };
+  } catch (error) {
+    console.error("Choose folder dialog failed:", error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("resolve-transfer-conflict", async (event, conflictId, options) => {
+  return { success: true };
+});
+
+
+// ============================================================
+// File Association — Open With
+// ============================================================
+
+ipcMain.handle(
+  "file-association:get-options",
+  async (event, filePath) => {
+    try {
+      return await fileAssociation.getOpenWithOptions(
+        filePath,
+      );
+    } catch (error) {
+      console.error(
+        "Get Open With options failed:",
+        error,
+      );
+
+      return {
+        success: false,
+        path: filePath,
+        options: [],
+        error: error.message,
+      };
+    }
+  },
+);
+
+ipcMain.handle(
+  "file-association:open-option",
+  async (event, filePath, option) => {
+    try {
+      return await fileAssociation.openWithOption(
+        filePath,
+        option,
+      );
+    } catch (error) {
+      console.error(
+        "Open With failed:",
+        error,
+      );
+
+      return {
+        success: false,
+        path: filePath,
+        error: error.message,
+      };
+    }
+  },
+);
+
+
+
+
+// ============================================================
+// File Association Information
+// ============================================================
+
+ipcMain.handle(
+  "file-association:get",
+  async (event, filePath) => {
+    try {
+      return await fileAssociation.getFileAssociation(
+        filePath,
+      );
+    } catch (error) {
+      console.error(
+        "File association lookup failed:",
+        error,
+      );
+
+      return {
+        success: false,
+        path: filePath,
+        error: error.message,
+      };
+    }
+  },
+);
+
+ipcMain.handle(
+  "file-association:get-registered",
+  async (event, extension) => {
+    try {
+      return await fileAssociation.getRegisteredApplications(
+        extension,
+      );
+    } catch (error) {
+      console.error(
+        "Registered applications lookup failed:",
+        error,
+      );
+
+      return {
+        success: false,
+        extension,
+        applications: [],
+        error: error.message,
+      };
+    }
+  },
+);
+
+
+
 
 // Copy file or folder
 ipcMain.handle("copy-item", async (event, sourcePath, destinationPath) => {

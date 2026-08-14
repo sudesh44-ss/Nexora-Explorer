@@ -17,6 +17,100 @@ contextBridge.exposeInMainWorld("fileExplorer", {
   getFileInfo: (path) =>
     ipcRenderer.invoke("get-file-info", path),
 
+
+
+  // ============================================================
+  // Thumbnail UI
+  // ============================================================
+
+  getThumbnailDataURL: (filePath, options = {}) =>
+    ipcRenderer.invoke(
+      "thumbnail:get-data-url",
+      filePath,
+      options,
+    ),
+
+  isThumbnailSupported: (filePath) =>
+    ipcRenderer.invoke(
+      "thumbnail:is-supported",
+      filePath,
+    ),
+
+
+
+
+// ============================================================
+  // Details Pane
+  // ============================================================
+
+  getDetailsPaneData: (filePath) =>
+    ipcRenderer.invoke(
+      "details-pane:get",
+      filePath,
+    ),
+
+
+    openItem: (itemPath) =>
+  ipcRenderer.invoke("open-item", itemPath),
+
+
+// ============================================================
+// File Association Information
+// ============================================================
+
+getFileAssociation: (filePath) =>
+  ipcRenderer.invoke(
+    "file-association:get",
+    filePath,
+  ),
+
+getRegisteredApplications: (extension) =>
+  ipcRenderer.invoke(
+    "file-association:get-registered",
+    extension,
+  ),
+
+
+// ============================================================
+  // File Association — Open With
+  // ============================================================
+
+  getOpenWithOptions: (filePath) =>
+    ipcRenderer.invoke(
+      "file-association:get-options",
+      filePath,
+    ),
+
+  openWithOption: (filePath, option) =>
+    ipcRenderer.invoke(
+      "file-association:open-option",
+      filePath,
+      option,
+    ),
+
+  // ============================================================
+  // Preview Pane
+  // ============================================================
+
+  getPreview: (filePath) =>
+    ipcRenderer.invoke(
+      "preview:get",
+      filePath,
+    ),
+
+  getPreviewMetadata: (filePath) =>
+    ipcRenderer.invoke(
+      "preview:get-metadata",
+      filePath,
+    ),
+
+  isPreviewSupported: (filePath) =>
+    ipcRenderer.invoke(
+      "preview:is-supported",
+      filePath,
+    ),
+
+
   getFolderSize: (path) =>
     ipcRenderer.invoke("get-folder-size", path),
 
@@ -52,7 +146,7 @@ contextBridge.exposeInMainWorld("fileExplorer", {
     filterType,
     Boolean(showHidden),
   ),
-  
+
   createZip: (sourcePath, destinationZip) =>
     ipcRenderer.invoke(
       "create-zip",
@@ -305,4 +399,30 @@ getHiddenStatuses: (paths) =>
     "hidden:get-statuses",
     paths,
   ),
+
+  chooseFolder: () =>
+    ipcRenderer.invoke("choose-folder"),
+
+  resolveTransferConflict: (conflictId, options) =>
+    ipcRenderer.invoke("resolve-transfer-conflict", conflictId, options),
+
+  searchDirectory: (rootPath, query, filterType, showHidden = false) =>
+    ipcRenderer.invoke(
+      "search-directory",
+      rootPath,
+      query,
+      filterType,
+      Boolean(showHidden),
+    ),
+
+  calculateHash: async (filePath, algorithm) => {
+    const res = await ipcRenderer.invoke("get-file-hash", filePath, [algorithm]);
+    if (res && res.success && res.hashes) {
+      return {
+        success: true,
+        hash: res.hashes[algorithm.toLowerCase()]
+      };
+    }
+    return res || { success: false, error: "Hash calculation failed." };
+  },
 });
