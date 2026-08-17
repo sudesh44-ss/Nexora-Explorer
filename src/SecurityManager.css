@@ -1,0 +1,889 @@
+/* =========================================================
+   SECURITY MANAGER
+   ========================================================= */
+
+.security-manager {
+  width: 100%;
+  height: 100%;
+  min-height: 600px;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  color: #1f2937;
+  overflow: hidden;
+}
+
+
+/* =========================================================
+   HEADER
+   ========================================================= */
+
+.security-header {
+  min-height: 72px;
+  padding: 14px 22px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.security-title-section {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.security-main-icon {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: #f3f4f6;
+  font-size: 20px;
+}
+
+.security-title-section h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.security-title-section p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.security-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 7px;
+  color: #6b7280;
+  font-size: 10px;
+}
+
+.security-status strong {
+  color: #374151;
+  font-weight: 600;
+}
+
+.security-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+}
+
+.security-close-btn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: #6b7280;
+  font-size: 23px;
+  cursor: pointer;
+}
+
+.security-close-btn:hover {
+  background: #f3f4f6;
+}
+
+
+/* =========================================================
+   NAVIGATION
+   ========================================================= */
+
+.security-navigation {
+  min-height: 52px;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  border-bottom: 1px solid #e5e7eb;
+  overflow-x: auto;
+}
+
+.security-nav-item {
+  height: 36px;
+  padding: 0 11px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #6b7280;
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.security-nav-item:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.security-nav-item.active {
+  background: #eef2ff;
+  color: #4338ca;
+  font-weight: 500;
+}
+
+.security-nav-icon {
+  font-size: 13px;
+}
+
+
+/* =========================================================
+   BODY
+   ========================================================= */
+
+.security-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.security-page {
+  padding: 22px;
+}
+
+
+/* =========================================================
+   PAGE HEADER
+   ========================================================= */
+
+.security-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 18px;
+}
+
+.security-page-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.security-page-header p {
+  margin: 5px 0 0;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
+.security-primary-btn,
+.security-secondary-btn {
+  height: 34px;
+  padding: 0 13px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.security-primary-btn {
+  border: none;
+  background: #4f46e5;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.security-primary-btn:hover {
+  background: #4338ca;
+}
+
+.security-secondary-btn {
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #4b5563;
+}
+
+.security-secondary-btn:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.danger-outline {
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+
+/* =========================================================
+   PATH BOX
+   ========================================================= */
+
+.security-path-box {
+  min-height: 38px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 7px;
+  background: #f9fafb;
+  font-size: 11px;
+}
+
+.security-path-box span {
+  color: #9ca3af;
+}
+
+.security-path-box strong {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+
+/* =========================================================
+   CARD
+   ========================================================= */
+
+.security-card,
+.ownership-card,
+.delete-settings-card,
+.encryption-status-card,
+.vault-settings {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.security-card-header {
+  min-height: 45px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+}
+
+
+/* =========================================================
+   BADGES
+   ========================================================= */
+
+.security-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 5px;
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.security-badge.neutral {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.security-badge.protected {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.security-badge.warning {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.security-badge.critical {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+
+/* =========================================================
+   PERMISSION TABLE
+   ========================================================= */
+
+.permission-table {
+  width: 100%;
+}
+
+.permission-row {
+  min-height: 45px;
+  display: grid;
+  grid-template-columns: 1fr 100px 100px 100px;
+  align-items: center;
+  padding: 0 14px;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.permission-row:last-child {
+  border-bottom: none;
+}
+
+.permission-header {
+  min-height: 36px;
+  background: #f9fafb;
+  color: #9ca3af;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.permission-state {
+  color: #9ca3af;
+}
+
+.permission-actions {
+  display: flex;
+  gap: 7px;
+  padding: 13px 14px;
+  border-top: 1px solid #e5e7eb;
+}
+
+
+/* =========================================================
+   INFO GRID
+   ========================================================= */
+
+.security-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.security-info-card {
+  display: flex;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.info-card-icon {
+  font-size: 18px;
+}
+
+.security-info-card strong {
+  display: block;
+  font-size: 11px;
+  color: #4b5563;
+}
+
+.security-info-card p {
+  margin: 4px 0 0;
+  font-size: 10px;
+  line-height: 1.5;
+  color: #9ca3af;
+}
+
+
+/* =========================================================
+   OWNERSHIP
+   ========================================================= */
+
+.ownership-card {
+  overflow: hidden;
+}
+
+.ownership-item {
+  min-height: 48px;
+  padding: 0 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 11px;
+}
+
+.ownership-item:last-child {
+  border-bottom: none;
+}
+
+.ownership-item span:first-child {
+  color: #6b7280;
+}
+
+.ownership-item strong {
+  color: #374151;
+  font-weight: 500;
+}
+
+
+/* =========================================================
+   WARNING
+   ========================================================= */
+
+.security-warning-card {
+  display: flex;
+  gap: 11px;
+  margin-top: 15px;
+  padding: 12px 14px;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.security-warning-card > span {
+  font-size: 18px;
+}
+
+.security-warning-card strong {
+  display: block;
+  font-size: 11px;
+}
+
+.security-warning-card p {
+  margin: 4px 0 0;
+  font-size: 10px;
+  line-height: 1.5;
+  color: #9a3412;
+}
+
+
+/* =========================================================
+   PROTECTED LOCATIONS
+   ========================================================= */
+
+.protected-location-list,
+.threat-list {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.protected-location-item,
+.threat-item {
+  min-height: 60px;
+  padding: 0 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.protected-location-item:last-child,
+.threat-item:last-child {
+  border-bottom: none;
+}
+
+.protected-location-item strong,
+.threat-item strong {
+  display: block;
+  font-size: 11px;
+  color: #374151;
+}
+
+.protected-location-item span:not(.security-badge),
+.threat-item span:not(.security-badge) {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+
+/* =========================================================
+   SECURE DELETE
+   ========================================================= */
+
+.delete-method-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.delete-method-card,
+.encryption-action-card {
+  padding: 17px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.delete-method-card:hover,
+.encryption-action-card:hover {
+  border-color: #c7d2fe;
+  background: #fafaff;
+}
+
+.delete-method-card > span,
+.encryption-action-card > span {
+  display: block;
+  margin-bottom: 9px;
+  font-size: 21px;
+}
+
+.delete-method-card strong,
+.encryption-action-card strong {
+  display: block;
+  font-size: 12px;
+  color: #374151;
+}
+
+.delete-method-card p,
+.encryption-action-card p {
+  margin: 5px 0 0;
+  font-size: 10px;
+  line-height: 1.5;
+  color: #9ca3af;
+}
+
+.delete-settings-card {
+  margin-top: 15px;
+  padding: 15px;
+}
+
+.delete-settings-card h4,
+.vault-settings h4 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: #374151;
+}
+
+.security-radio-row,
+.security-checkbox-row {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.security-radio-row input,
+.security-checkbox-row input {
+  width: 14px;
+  height: 14px;
+}
+
+
+/* =========================================================
+   ENCRYPTION
+   ========================================================= */
+
+.encryption-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.encryption-status-card {
+  margin-top: 15px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.encryption-status-card div {
+  min-height: 65px;
+  padding: 0 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-right: 1px solid #e5e7eb;
+}
+
+.encryption-status-card div:last-child {
+  border-right: none;
+}
+
+.encryption-status-card span {
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+.encryption-status-card strong {
+  margin-top: 5px;
+  font-size: 12px;
+  color: #374151;
+}
+
+
+/* =========================================================
+   VAULT
+   ========================================================= */
+
+.vault-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.vault-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #374151;
+}
+
+.vault-header p {
+  margin: 5px 0 0;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.vault-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.vault-lock-icon {
+  font-size: 17px;
+}
+
+.vault-main-card {
+  padding: 35px 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 9px;
+  background: #f9fafb;
+  text-align: center;
+}
+
+.vault-large-icon {
+  font-size: 38px;
+  margin-bottom: 12px;
+}
+
+.vault-main-card h3 {
+  margin: 0;
+  font-size: 15px;
+  color: #374151;
+}
+
+.vault-main-card p {
+  margin: 6px 0 17px;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.vault-settings {
+  margin-top: 14px;
+  padding: 15px;
+}
+
+.vault-actions {
+  display: flex;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+
+/* =========================================================
+   LOGS
+   ========================================================= */
+
+.log-toolbar {
+  display: flex;
+  gap: 7px;
+  margin-bottom: 12px;
+}
+
+.log-toolbar select,
+.log-toolbar input {
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  outline: none;
+  background: #ffffff;
+  color: #6b7280;
+  font-size: 11px;
+}
+
+.log-toolbar input {
+  flex: 1;
+}
+
+.log-toolbar select:focus,
+.log-toolbar input:focus {
+  border-color: #6366f1;
+}
+
+.logs-table {
+  min-height: 320px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.logs-table-header {
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: 120px 130px 1fr 130px 80px;
+  align-items: center;
+  padding: 0 12px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  color: #9ca3af;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.logs-empty {
+  height: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.logs-empty div {
+  margin-bottom: 8px;
+  font-size: 28px;
+  color: #d1d5db;
+}
+
+.logs-empty strong {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.logs-empty p {
+  margin: 5px 0 0;
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+.security-info-note {
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 6px;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
+
+.security-footer {
+  min-height: 43px;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+.security-footer-left,
+.security-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.security-footer-left strong {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.security-footer-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+}
+
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+
+.security-body::-webkit-scrollbar {
+  width: 7px;
+}
+
+.security-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.security-body::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 10px;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 900px) {
+  .security-status {
+    display: none;
+  }
+
+  .security-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .delete-method-grid,
+  .encryption-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .encryption-status-card {
+    grid-template-columns: 1fr;
+  }
+
+  .encryption-status-card div {
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .encryption-status-card div:last-child {
+    border-bottom: none;
+  }
+}
+
+@media (max-width: 650px) {
+  .security-page {
+    padding: 15px;
+  }
+
+  .security-page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .permission-row {
+    grid-template-columns: 1fr 65px 65px 65px;
+  }
+
+  .logs-table {
+    overflow-x: auto;
+  }
+
+  .logs-table-header {
+    min-width: 600px;
+  }
+}

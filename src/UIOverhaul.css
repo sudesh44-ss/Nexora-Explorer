@@ -1,0 +1,1890 @@
+/* ============================================================
+   WINDOWS 11 DARK UI — PART 2
+   Toolbar + Content + Files
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   Content Area
+   ------------------------------------------------------------ */
+
+.content {
+  flex: 1;
+
+  min-width: 0;
+  min-height: 0;
+
+  padding: 12px 18px 20px;
+
+  overflow-y: auto;
+  overflow-x: hidden;
+/* 
+  background:
+    linear-gradient(
+      180deg,
+      rgba(7, 22, 35, 0.72),
+      rgba(5, 19, 31, 0.92)
+    ); */
+top: 44px;
+
+  /* color: var(--text); */
+}
+
+
+/* Content scrollbar */
+
+.content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+}
+
+.content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.20);
+}
+
+
+/* ------------------------------------------------------------
+   Headings
+   ------------------------------------------------------------ */
+
+.content h2 {
+  margin: 0 0 16px;
+
+  color: #f5f8fb;
+
+  font-size: 20px;
+  font-weight: 600;
+
+  letter-spacing: -0.2px;
+}
+
+.content h3 {
+  margin: 12px 0 12px;
+
+  color: #e6edf3;
+
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------
+   Toolbar
+   ------------------------------------------------------------ */
+
+.toolbar {
+  min-height: 52px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 6px;
+
+  padding: 6px 10px;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(11, 30, 46, 0.98),
+      rgba(8, 24, 38, 0.98)
+    );
+
+  border-bottom: 1px solid var(--border);
+
+  color: var(--text-secondary);
+}
+
+/* Toolbar buttons */
+
+.toolbar button {
+  min-height: 38px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 8px;
+
+  padding: 7px 14px;
+
+  border: 1px solid transparent;
+  border-radius: 7px;
+
+  background: transparent;
+
+  color: #d7e2eb;
+
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 14px;
+
+  cursor: pointer;
+
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.toolbar button:hover {
+  background: rgba(255, 255, 255, 0.06);
+
+  border-color: rgba(255, 255, 255, 0.07);
+
+  color: white;
+}
+
+.toolbar button:active {
+  background: rgba(0, 153, 255, 0.12);
+}
+
+/* Primary New button */
+
+.toolbar button:first-child {
+  background:
+    linear-gradient(
+      180deg,
+      #087fc9,
+      #0068aa
+    );
+
+  border-color: rgba(41, 177, 255, 0.35);
+
+  color: white;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 2px 8px rgba(0, 100, 180, 0.18);
+}
+
+.toolbar button:first-child:hover {
+  background:
+    linear-gradient(
+      180deg,
+      #0b92e3,
+      #0075bd
+    );
+}
+
+/* ------------------------------------------------------------
+   Toolbar Separators
+   ------------------------------------------------------------ */
+
+.toolbar .separator,
+.toolbar > span.separator {
+  width: 1px;
+  height: 28px;
+
+  margin: 0 5px;
+
+  background: rgba(255, 255, 255, 0.09);
+}
+
+/* ------------------------------------------------------------
+   View Controls
+   ------------------------------------------------------------ */
+
+.view-controls {
+  display: flex;
+  align-items: center;
+
+  gap: 5px;
+
+  margin-left: auto;
+}
+
+.view-controls select {
+  height: 36px;
+
+  padding: 0 30px 0 10px;
+
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 7px;
+
+  background: #102536;
+
+  color: #dce7ef;
+
+  outline: none;
+
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+
+  cursor: pointer;
+}
+
+.view-controls select:hover {
+  background: #153047;
+
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.view-controls select:focus {
+  border-color: rgba(0, 153, 255, 0.45);
+}
+
+.view-controls button {
+  width: 36px;
+  height: 36px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0;
+
+  border: 1px solid transparent;
+  border-radius: 7px;
+
+  background: transparent;
+
+  color: #b9c9d6;
+
+  font-size: 16px;
+}
+
+.view-controls button:hover {
+  background: rgba(255, 255, 255, 0.07);
+
+  color: white;
+}
+
+.view-controls button.active {
+  background: rgba(0, 153, 255, 0.14);
+
+  border-color: rgba(0, 153, 255, 0.22);
+
+  color: #29adff;
+}
+
+/* ------------------------------------------------------------
+   File Grid
+   ------------------------------------------------------------ */
+
+.file-grid {
+  display: grid;
+
+  /* grid-template-columns:
+    repeat(auto-fill, minmax(170px, 1fr)); */
+
+  gap: 8px;
+
+  width: 100%;
+}
+
+/* ------------------------------------------------------------
+   File Item
+   ------------------------------------------------------------ */
+
+.file-item {
+  min-width: 0;
+
+  padding: 12px;
+
+  /* background:
+    rgba(10, 29, 44, 0.72); */
+
+  border: 1px solid transparent;
+  border-radius: 8px;
+
+  color: #dbe6ee;
+
+  cursor: pointer;
+
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.file-item:hover {
+  background:
+    rgba(21, 48, 68, 0.86);
+
+  border-color:
+    rgba(255, 255, 255, 0.08);
+}
+
+.file-item.selected {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(0, 153, 255, 0.17),
+      rgba(0, 153, 255, 0.08)
+    );
+
+  border-color:
+    rgba(0, 153, 255, 0.34);
+
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 153, 255, 0.04);
+}
+
+/* ------------------------------------------------------------
+   File Icon
+   ------------------------------------------------------------ */
+
+.file-item .file-icon {
+  min-height: 64px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  margin-bottom: 7px;
+
+  color: #16a7ff;
+
+  font-size: 42px;
+}
+
+.file-icon {
+  color: #16a7ff;
+
+  font-size: 38px;
+}
+
+/* ------------------------------------------------------------
+   Thumbnail
+   ------------------------------------------------------------ */
+
+.file-thumbnail {
+  width: 64px;
+  height: 64px;
+
+  display: block;
+
+  object-fit: cover;
+
+  margin: 0 auto 8px;
+
+  border-radius: 7px;
+
+  background: #102536;
+
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ------------------------------------------------------------
+   File Name
+   ------------------------------------------------------------ */
+
+.file-item > div:last-child,
+.file-item .file-name {
+  color: #dce6ee;
+
+  font-size: 13px;
+
+  text-align: center;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------
+   File List / Details View
+   ------------------------------------------------------------ */
+
+.file-list {
+  width: 100%;
+
+  display: flex;
+  flex-direction: column;
+
+  overflow: hidden;
+
+  /* background:
+    rgba(7, 24, 38, 0.72); */
+
+  border: 1px solid rgba(255, 255, 255, 0.08);
+
+  border-radius: 8px;
+
+  color: #dce6ee;
+}
+
+/* Header + Rows */
+
+.file-list-header,
+.file-row {
+  display: grid;
+
+  grid-template-columns:
+    minmax(280px, 1fr)
+    190px
+    130px
+    110px;
+
+  align-items: center;
+
+  gap: 10px;
+}
+
+/* Header */
+
+.file-list-header {
+  min-height: 40px;
+
+  padding: 0 14px;
+/* 
+  background:
+    rgba(16, 38, 55, 0.9); */
+
+  border-bottom:
+    1px solid rgba(255, 255, 255, 0.08);
+
+  color: #9fb1bf;
+
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Rows */
+
+.file-row {
+  min-height: 42px;
+
+  padding: 0 14px;
+
+  border-bottom:
+    1px solid rgba(255, 255, 255, 0.055);
+
+  color: #d5e0e8;
+
+  font-size: 13px;
+
+  cursor: pointer;
+
+  transition:
+    background 0.12s ease;
+}
+
+.file-row:last-child {
+  border-bottom: none;
+}
+
+.file-row:hover {
+  background:
+    rgba(255, 255, 255, 0.045);
+}
+
+.file-row.selected {
+  background:
+    rgba(0, 153, 255, 0.14);
+}
+
+/* File name */
+
+.file-row-name {
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+
+  gap: 9px;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+.file-row-name .file-icon {
+  flex: 0 0 auto;
+
+  margin: 0;
+
+  color: #18aaff;
+
+  font-size: 20px;
+}
+
+.file-row > span {
+  min-width: 0;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------
+   Empty / No Results
+   ------------------------------------------------------------ */
+
+.no-results {
+  padding: 50px 20px;
+
+  color: #8194a4;
+
+  text-align: center;
+
+  font-size: 14px;
+}
+
+/* ------------------------------------------------------------
+   Error Message
+   ------------------------------------------------------------ */
+
+.error-message {
+  margin: 12px 0;
+
+  padding: 11px 14px;
+
+  background:
+    rgba(220, 55, 55, 0.10);
+
+  border:
+    1px solid rgba(255, 90, 90, 0.25);
+
+  border-radius: 8px;
+
+  color: #ff9a9a;
+
+  font-size: 13px;
+}
+
+/* ------------------------------------------------------------
+   Drag & Drop
+   ------------------------------------------------------------ */
+
+.file-item.dragging,
+.file-row.dragging {
+  opacity: 0.45;
+}
+
+.file-item.drag-over,
+.file-row.drag-over {
+  outline:
+    1px dashed #00a2ff;
+
+  outline-offset: -2px;
+
+  background:
+    rgba(0, 153, 255, 0.10);
+}
+
+
+/* ============================================================
+   WINDOWS 11 DARK UI — PART 3
+   Details Pane + Tabs + Status Bar
+   ============================================================ */
+
+
+
+/* ============================================================
+   TABS
+   ============================================================ */
+
+
+.tabs-list {
+  flex: 1;
+
+  min-width: 0;
+
+  display: flex;
+  align-items: stretch;
+
+  gap: 4px;
+
+  overflow-x: auto;
+}
+
+.tabs-list::-webkit-scrollbar {
+  height: 3px;
+}
+
+.tabs-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+/* ------------------------------------------------------------
+   Individual Tab
+   ------------------------------------------------------------ */
+
+.explorer-tab {
+  min-width: 130px;
+  max-width: 240px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 8px;
+
+  padding: 6px 9px;
+
+  border:
+    1px solid transparent;
+
+  border-radius: 7px;
+
+  background: transparent;
+
+  color: #9eb0be;
+
+  cursor: pointer;
+
+  font-size: 13px;
+
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.explorer-tab:hover {
+  background:
+    rgba(255, 255, 255, 0.055);
+
+  color: #dce7ee;
+}
+
+.explorer-tab.active {
+  background:
+    #10283b;
+
+  border-color:
+    rgba(255, 255, 255, 0.09);
+
+  color: #f0f5f8;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.explorer-tab span {
+  min-width: 0;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------
+   Tab Buttons
+   ------------------------------------------------------------ */
+
+.tab-close,
+.tab-action {
+  width: 28px;
+  height: 28px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border-radius: 6px;
+
+  color: #91a6b5;
+
+  font-size: 16px;
+}
+
+.tab-close:hover,
+.tab-action:hover {
+  background:
+    rgba(255, 255, 255, 0.07);
+
+  color: white;
+}
+
+.tab-action {
+  background:
+    #102536;
+
+  border:
+    1px solid rgba(255, 255, 255, 0.08);
+
+  color: #b7c9d6;
+}
+
+
+/* ============================================================
+   Preview Pane
+   ============================================================ */
+
+.preview-pane {
+  position: fixed;
+
+  top: 112px;
+  right: 0;
+  bottom: 32px;
+
+  width: 360px;
+
+  display: flex;
+  flex-direction: column;
+
+  background:
+    linear-gradient(
+      180deg,
+      #0b1c2b,
+      #081827
+    );
+
+  border-left:
+    1px solid rgba(255, 255, 255, 0.10);
+
+  box-shadow:
+    -10px 0 30px rgba(0, 0, 0, 0.20);
+
+  color: var(--text);
+
+  z-index: 1000;
+}
+
+.preview-pane-header {
+  min-height: 48px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 0 14px;
+
+  border-bottom:
+    1px solid rgba(255, 255, 255, 0.08);
+}
+
+.preview-pane-header strong {
+  color: #e7eef3;
+
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.preview-pane-header button {
+  width: 30px;
+  height: 30px;
+
+  border: 1px solid transparent;
+  border-radius: 6px;
+
+  background: transparent;
+
+  color: #9cafbd;
+
+  cursor: pointer;
+
+  font-size: 15px;
+}
+
+.preview-pane-header button:hover {
+  background:
+    rgba(255, 255, 255, 0.07);
+
+  color: white;
+}
+
+.preview-pane-body {
+  flex: 1;
+
+  min-height: 0;
+
+  padding: 14px;
+
+  overflow: auto;
+
+  color: #d5e0e8;
+}
+
+.preview-empty {
+  min-height: 240px;
+
+  display: flex;
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  text-align: center;
+
+  color: #8297a8;
+}
+
+.preview-empty-icon {
+  margin-bottom: 10px;
+
+  color: #268dcc;
+
+  font-size: 42px;
+}
+
+.preview-content {
+  display: flex;
+  flex-direction: column;
+
+  gap: 14px;
+}
+
+.preview-file-name {
+  padding-bottom: 10px;
+
+  border-bottom:
+    1px solid rgba(255, 255, 255, 0.08);
+
+  color: #e8f0f5;
+
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ============================================================
+   CONTEXT MENU
+   ============================================================ */
+
+.context-menu {
+  position: fixed;
+
+  min-width: 220px;
+
+  padding: 6px;
+
+  background:
+    rgba(13, 31, 47, 0.98);
+
+  border:
+    1px solid rgba(255, 255, 255, 0.12);
+
+  border-radius: 9px;
+
+  box-shadow:
+    0 14px 35px rgba(0, 0, 0, 0.38),
+    0 3px 8px rgba(0, 0, 0, 0.22);
+
+  color: #dce7ee;
+
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+
+  z-index: 2000;
+}
+
+.context-menu button,
+.context-menu-item {
+  width: 100%;
+
+  min-height: 34px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 7px 10px;
+
+  border: 1px solid transparent;
+
+  border-radius: 6px;
+
+  background: transparent;
+
+  color: #d7e2e9;
+
+  font-family:
+    "Segoe UI",
+    Arial,
+    sans-serif;
+
+  font-size: 13px;
+
+  text-align: left;
+
+  cursor: pointer;
+}
+
+.context-menu button:hover,
+.context-menu-item:hover {
+  background:
+    rgba(255, 255, 255, 0.07);
+
+  color: white;
+}
+
+.context-menu button:active,
+.context-menu-item:active {
+  background:
+    rgba(0, 153, 255, 0.15);
+}
+
+.context-menu button:disabled,
+.context-menu-item.disabled {
+  color: #607586;
+
+  opacity: 0.55;
+
+  cursor: default;
+}
+
+.context-menu button:disabled:hover,
+.context-menu-item.disabled:hover {
+  background: transparent;
+}
+
+/* Context menu icons */
+
+.context-menu button svg,
+.context-menu-item svg {
+  width: 17px;
+  height: 17px;
+
+  flex-shrink: 0;
+
+  color: #9fb5c5;
+}
+
+.context-menu button:hover svg,
+.context-menu-item:hover svg {
+  color: #1aaaff;
+}
+
+/* Divider */
+
+.context-menu hr,
+.context-menu-divider {
+  height: 1px;
+
+  margin: 5px 4px;
+
+  border: none;
+
+  background:
+    rgba(255, 255, 255, 0.08);
+}
+
+/* ============================================================
+   MODAL OVERLAY
+   ============================================================ */
+
+.modal-overlay {
+  position: fixed;
+
+  inset: 0;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+
+  background:
+    rgba(0, 5, 10, 0.58);
+
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+
+  z-index: 3000;
+}
+
+
+/* ============================================================
+   PROPERTIES DIALOG
+   ============================================================ */
+
+.properties-dialog {
+  width: min(520px, calc(100vw - 40px));
+
+  max-height:
+    min(700px, calc(100vh - 60px));
+
+  display: flex;
+  flex-direction: column;
+
+  overflow: hidden;
+
+  background:
+    linear-gradient(
+      180deg,
+      #0d2233,
+      #091a29
+    );
+
+  border:
+    1px solid rgba(255, 255, 255, 0.12);
+
+  border-radius: 12px;
+
+  box-shadow:
+    0 25px 70px rgba(0, 0, 0, 0.48);
+
+  color: #dce7ee;
+}
+
+
+/* ------------------------------------------------------------
+   Properties Header
+   ------------------------------------------------------------ */
+
+.properties-dialog h3 {
+  margin: 0;
+
+  padding: 17px 18px;
+
+  background:
+    rgba(255, 255, 255, 0.025);
+
+  border-bottom:
+    1px solid rgba(255, 255, 255, 0.08);
+
+  color: #f0f5f8;
+
+  font-size: 16px;
+  font-weight: 600;
+}
+
+
+/* ------------------------------------------------------------
+   Properties Body
+   ------------------------------------------------------------ */
+
+.properties-dialog > div {
+  color: #cddae3;
+}
+
+.properties-dialog p {
+  margin: 0;
+
+  color: #b7c7d2;
+
+  font-size: 13px;
+
+  line-height: 1.55;
+}
+
+
+/* ------------------------------------------------------------
+   Properties Rows
+   ------------------------------------------------------------ */
+
+.properties-dialog .property-row {
+  display: flex;
+
+  justify-content: space-between;
+
+  gap: 20px;
+
+  padding: 8px 16px;
+
+  border-bottom:
+    1px solid rgba(255, 255, 255, 0.045);
+
+  font-size: 13px;
+}
+
+.properties-dialog .property-row span:first-child {
+  color: #8198a9;
+}
+
+.properties-dialog .property-row span:last-child {
+  color: #dce7ee;
+
+  text-align: right;
+
+  overflow-wrap: anywhere;
+}
+
+
+/* ============================================================
+   PROPERTIES FOOTER
+   ============================================================ */
+
+.properties-footer {
+  display: flex;
+
+  align-items: center;
+  justify-content: flex-end;
+
+  gap: 8px;
+
+  margin-top: auto;
+
+  padding: 12px 16px;
+
+  background:
+    rgba(255, 255, 255, 0.018);
+
+  border-top:
+    1px solid rgba(255, 255, 255, 0.08);
+}
+
+.properties-footer button {
+  min-width: 82px;
+
+  min-height: 34px;
+
+  padding: 7px 15px;
+
+  border:
+    1px solid rgba(255, 255, 255, 0.12);
+
+  border-radius: 6px;
+
+  background:
+    rgba(255, 255, 255, 0.045);
+
+  color: #dce7ee;
+
+  cursor: pointer;
+
+  font-family:
+    "Segoe UI",
+    Arial,
+    sans-serif;
+
+  font-size: 13px;
+
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.properties-footer button:hover {
+  background:
+    rgba(255, 255, 255, 0.08);
+
+  border-color:
+    rgba(255, 255, 255, 0.18);
+
+  color: white;
+}
+
+
+/* ============================================================
+   RENAME DIALOG
+   ============================================================ */
+
+.rename-dialog {
+  width: min(420px, calc(100vw - 40px));
+
+  padding: 0;
+
+  overflow: hidden;
+
+  background:
+    linear-gradient(
+      180deg,
+      #0d2233,
+      #091a29
+    );
+
+  border:
+    1px solid rgba(255, 255, 255, 0.12);
+
+  border-radius: 12px;
+
+  box-shadow:
+    0 25px 70px rgba(0, 0, 0, 0.48);
+
+  color: #dce7ee;
+}
+
+
+/* ------------------------------------------------------------
+   Rename Heading
+   ------------------------------------------------------------ */
+
+.rename-dialog h3 {
+  margin: 0;
+
+  padding: 17px 18px;
+
+  background:
+    rgba(255, 255, 255, 0.025);
+
+  border-bottom:
+    1px solid rgba(255, 255, 255, 0.08);
+
+  color: #f1f6f9;
+
+  font-size: 16px;
+  font-weight: 600;
+}
+
+
+/* ------------------------------------------------------------
+   Rename Input
+   ------------------------------------------------------------ */
+
+.rename-dialog input {
+  width: calc(100% - 36px);
+
+  height: 40px;
+
+  margin: 18px;
+
+  padding: 0 11px;
+
+  outline: none;
+
+  border:
+    1px solid rgba(255, 255, 255, 0.12);
+
+  border-radius: 7px;
+
+  background:
+    #071a29;
+
+  color: #edf5f9;
+
+  font-family:
+    "Segoe UI",
+    Arial,
+    sans-serif;
+
+  font-size: 14px;
+
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.rename-dialog input:hover {
+  border-color:
+    rgba(255, 255, 255, 0.18);
+}
+
+.rename-dialog input:focus {
+  border-color:
+    rgba(0, 153, 255, 0.65);
+
+  box-shadow:
+    0 0 0 2px rgba(0, 153, 255, 0.10);
+}
+
+.rename-dialog input::selection {
+  background:
+    rgba(0, 153, 255, 0.35);
+}
+
+
+/* ============================================================
+   RENAME BUTTONS
+   ============================================================ */
+
+.rename-buttons {
+  display: flex;
+
+  justify-content: flex-end;
+
+  gap: 8px;
+
+  padding: 12px 16px;
+
+  border-top:
+    1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rename-buttons button {
+  min-width: 82px;
+
+  min-height: 34px;
+
+  padding: 7px 15px;
+
+  border:
+    1px solid rgba(255, 255, 255, 0.12);
+
+  border-radius: 6px;
+
+  background:
+    rgba(255, 255, 255, 0.045);
+
+  color: #dce7ee;
+
+  cursor: pointer;
+
+  font-family:
+    "Segoe UI",
+    Arial,
+    sans-serif;
+
+  font-size: 13px;
+}
+
+.rename-buttons button:hover {
+  background:
+    rgba(255, 255, 255, 0.08);
+
+  border-color:
+    rgba(255, 255, 255, 0.18);
+
+  color: white;
+}
+
+/* ------------------------------------------------------------
+   Primary Action
+   ------------------------------------------------------------ */
+
+.rename-buttons button.primary-btn,
+.properties-footer button.primary-btn {
+  background:
+    linear-gradient(
+      180deg,
+      #078cda,
+      #006cb0
+    );
+
+  border-color:
+    rgba(43, 180, 255, 0.40);
+
+  color: white;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.rename-buttons button.primary-btn:hover,
+.properties-footer button.primary-btn:hover {
+  background:
+    linear-gradient(
+      180deg,
+      #0b9bea,
+      #007bc4
+    );
+
+  border-color:
+    rgba(63, 191, 255, 0.55);
+}
+
+
+/* ============================================================
+   DIALOG CLOSE BUTTON
+   ============================================================ */
+
+.properties-dialog button.close-btn,
+.rename-dialog button.close-btn {
+  width: 30px;
+  height: 30px;
+
+  border: none;
+
+  border-radius: 6px;
+
+  background: transparent;
+
+  color: #91a6b5;
+
+  cursor: pointer;
+}
+
+.properties-dialog button.close-btn:hover,
+.rename-dialog button.close-btn:hover {
+  background:
+    rgba(255, 255, 255, 0.07);
+
+  color: white;
+}
+
+
+/* ============================================================
+   OPEN WITH DIALOG
+   ============================================================ */
+
+.open-with-dialog {
+  width: min(520px, calc(100vw - 40px));
+
+  max-height:
+    min(650px, calc(100vh - 80px));
+
+  display: flex;
+  flex-direction: column;
+
+  overflow: hidden;
+
+  background:
+    linear-gradient(
+      180deg,
+      #0d2233,
+      #091a29
+    );
+
+  border:
+    1px solid rgba(255, 255, 255, 0.12);
+
+  border-radius: 12px;
+
+  box-shadow:
+    0 25px 70px rgba(0, 0, 0, 0.48);
+
+  color: #dce7ee;
+}
+
+
+/* ------------------------------------------------------------
+   Open With Header
+   ------------------------------------------------------------ */
+
+.open-with-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 16px;
+
+  padding: 17px 18px;
+
+  background:
+    rgba(255, 255, 255, 0.025);
+
+  border-bottom:
+    1px solid rgba(255, 255, 255, 0.08);
+}
+
+.open-with-header strong {
+  display: block;
+
+  color: #f0f5f8;
+
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.open-with-file-name {
+  margin-top: 5px;
+
+  max-width: 390px;
+
+  color: #8fa4b4;
+
+  font-size: 12px;
+
+  overflow-wrap: anywhere;
+}
+
+.open-with-header button {
+  width: 30px;
+  height: 30px;
+
+  flex: 0 0 auto;
+
+  border:
+    1px solid transparent;
+
+  border-radius: 6px;
+
+  background: transparent;
+
+  color: #91a6b5;
+
+  cursor: pointer;
+}
+
+.open-with-header button:hover:not(:disabled) {
+  background:
+    rgba(255, 255, 255, 0.07);
+
+  color: white;
+}
+
+/* ------------------------------------------------------------
+   Open With Body
+   ------------------------------------------------------------ */
+
+.open-with-body {
+  flex: 1;
+
+  min-height: 0;
+
+  padding: 16px;
+
+  overflow-y: auto;
+
+  background:
+    rgba(5, 18, 29, 0.25);
+}
+
+.open-with-body::-webkit-scrollbar {
+  width: 7px;
+}
+
+.open-with-body::-webkit-scrollbar-thumb {
+  background:
+    rgba(255, 255, 255, 0.12);
+
+  border-radius: 10px;
+}
+
+.open-with-title {
+  margin-bottom: 10px;
+
+  color: #8298a8;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  letter-spacing: 0.2px;
+}
+
+
+/* ------------------------------------------------------------
+   Application List
+   ------------------------------------------------------------ */
+
+.open-with-list {
+  display: flex;
+  flex-direction: column;
+
+  gap: 7px;
+}
+
+.open-with-option {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+
+  padding: 10px;
+
+  text-align: left;
+
+  border:
+    1px solid rgba(255, 255, 255, 0.08);
+
+  border-radius: 8px;
+
+  background:
+    rgba(255, 255, 255, 0.025);
+
+  color: #dce7ee;
+
+  cursor: pointer;
+
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.open-with-option:hover {
+  background:
+    rgba(0, 153, 255, 0.09);
+
+  border-color:
+    rgba(0, 153, 255, 0.25);
+}
+
+
+/* ------------------------------------------------------------
+   Application Icon
+   ------------------------------------------------------------ */
+
+.open-with-icon {
+  width: 38px;
+  height: 38px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex: 0 0 auto;
+
+  border:
+    1px solid rgba(255, 255, 255, 0.08);
+
+  border-radius: 8px;
+
+  background:
+    rgba(0, 153, 255, 0.08);
+
+  color: #18aaff;
+
+  font-size: 20px;
+}
+
+
+/* ------------------------------------------------------------
+   Application Info
+   ------------------------------------------------------------ */
+
+.open-with-option-content {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 3px;
+}
+
+.open-with-option-content strong {
+  color: #e4edf2;
+
+  font-size: 13px;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+.open-with-option-content small {
+  max-width: 400px;
+
+  color: #8196a6;
+
+  font-size: 10px;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+
+/* ------------------------------------------------------------
+   Open With Message / Error
+   ------------------------------------------------------------ */
+
+.open-with-message {
+  min-height: 180px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  text-align: center;
+
+  color: #8196a6;
+
+  font-size: 13px;
+}
+
+.open-with-error {
+  padding: 12px;
+
+  border:
+    1px solid rgba(255, 85, 85, 0.20);
+
+  border-radius: 8px;
+
+  background:
+    rgba(220, 55, 55, 0.09);
+
+  color: #ff9b9b;
+
+  font-size: 12px;
+
+  line-height: 1.5;
+}
+
+
+/* ------------------------------------------------------------
+   Open With Footer
+   ------------------------------------------------------------ */
+
+.open-with-footer {
+  display: flex;
+
+  justify-content: flex-end;
+
+  gap: 8px;
+
+  padding: 12px 16px;
+
+  background:
+    rgba(255, 255, 255, 0.018);
+
+  border-top:
+    1px solid rgba(255, 255, 255, 0.08);
+}
+
+.open-with-footer button {
+  min-width: 80px;
+
+  min-height: 34px;
+
+  padding: 7px 14px;
+
+  border:
+    1px solid rgba(255, 255, 255, 0.12);
+
+  border-radius: 6px;
+
+  background:
+    rgba(255, 255, 255, 0.045);
+
+  color: #dce7ee;
+
+  cursor: pointer;
+}
+
+.open-with-footer button:hover:not(:disabled) {
+  background:
+    rgba(255, 255, 255, 0.08);
+
+  border-color:
+    rgba(255, 255, 255, 0.18);
+
+  color: white;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ------------------------------------------------------------
+   Responsive
+   ------------------------------------------------------------ */
+
+@media (max-width: 1000px) {
+  .file-grid {
+    grid-template-columns:
+      repeat(auto-fill, minmax(150px, 1fr));
+  }
+
+  .toolbar button {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .file-list-header,
+  .file-row {
+    grid-template-columns:
+      minmax(220px, 1fr)
+      150px
+      100px
+      90px;
+  }
+}
+
+@media (max-width: 700px) {
+  .file-grid {
+    grid-template-columns:
+      repeat(auto-fill, minmax(125px, 1fr));
+  }
+
+  .file-list {
+    overflow-x: auto;
+  }
+
+  .file-list-header,
+  .file-row {
+    min-width: 600px;
+  }
+
+  .toolbar {
+    overflow-x: auto;
+  }
+}
+
+
+
+
+/* ============================================================
+   MOBILE
+   ============================================================ */
+
+@media (max-width: 600px) {
+
+  .context-menu {
+    min-width: 190px;
+
+    max-width:
+      calc(100vw - 20px);
+  }
+
+  .properties-dialog,
+  .rename-dialog {
+    width:
+      calc(100vw - 28px);
+
+    max-width: none;
+  }
+
+  .modal-overlay {
+    padding: 14px;
+  }
+
+  .properties-footer,
+  .rename-buttons {
+    flex-wrap: wrap;
+  }
+
+  .properties-footer button,
+  .rename-buttons button {
+    flex: 1;
+  }
+}
+
+
+
+/* ------------------------------------------------------------
+   Responsive Details / Preview
+   ------------------------------------------------------------ */
+
+@media (max-width: 900px) {
+  .details-pane,
+  .preview-pane {
+    width: 300px;
+  }
+}
+
+@media (max-width: 700px) {
+  .details-pane,
+  .preview-pane {
+    width: min(88vw, 340px);
+  }
+}
+
+
+/* ------------------------------------------------------------
+   Responsive
+   ------------------------------------------------------------ */
+
+@media (max-width: 900px) {
+  .sidebar {
+    width: 210px;
+    min-width: 210px;
+  }
+
+  .search-box {
+    width: 210px;
+  }
+}
+
+@media (max-width: 700px) {
+  .sidebar {
+    width: 180px;
+    min-width: 180px;
+  }
+
+  .search-box {
+    width: 160px;
+  }
+
+  .topbar {
+    gap: 6px;
+    padding: 8px;
+  }
+}

@@ -426,3 +426,5 @@ getHiddenStatuses: (paths) =>
     return res || { success: false, error: "Hash calculation failed." };
   },
 });
+
+require("./preload-features.cjs");

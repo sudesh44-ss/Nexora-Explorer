@@ -1,0 +1,1175 @@
+/* =========================================================
+   NETWORK FEATURES
+   ========================================================= */
+
+.network-features {
+  width: 100%;
+  height: 100%;
+  min-height: 600px;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  color: #1f2937;
+  overflow: hidden;
+}
+
+
+/* =========================================================
+   HEADER
+   ========================================================= */
+
+.network-header {
+  min-height: 72px;
+  padding: 14px 22px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.network-title-section {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.network-main-icon {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: #f3f4f6;
+  font-size: 18px;
+}
+
+.network-title-section h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.network-title-section p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.network-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 7px;
+  font-size: 10px;
+  color: #6b7280;
+}
+
+.network-status strong {
+  color: #374151;
+}
+
+.network-status-dot,
+.network-footer-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22c55e;
+}
+
+.network-close-btn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: #6b7280;
+  font-size: 23px;
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   NAVIGATION
+   ========================================================= */
+
+.network-navigation {
+  min-height: 52px;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  border-bottom: 1px solid #e5e7eb;
+  overflow-x: auto;
+}
+
+.network-nav-item {
+  height: 36px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #6b7280;
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.network-nav-item:hover {
+  background: #f3f4f6;
+}
+
+.network-nav-item.active {
+  background: #eef2ff;
+  color: #4338ca;
+  font-weight: 500;
+}
+
+
+/* =========================================================
+   BODY
+   ========================================================= */
+
+.network-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.network-page {
+  padding: 22px;
+}
+
+
+/* =========================================================
+   PAGE HEADER
+   ========================================================= */
+
+.network-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 18px;
+}
+
+.network-page-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #374151;
+}
+
+.network-page-header p {
+  margin: 5px 0 0;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
+.network-primary-btn {
+  height: 34px;
+  padding: 0 13px;
+  border: none;
+  border-radius: 6px;
+  background: #4f46e5;
+  color: #ffffff;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.network-primary-btn:hover {
+  background: #4338ca;
+}
+
+.network-secondary-btn {
+  height: 34px;
+  padding: 0 13px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #6b7280;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.network-small-btn {
+  height: 29px;
+  padding: 0 9px;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  background: #ffffff;
+  color: #6b7280;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.network-danger-btn {
+  height: 29px;
+  padding: 0 9px;
+  border: 1px solid #fecaca;
+  border-radius: 5px;
+  background: #ffffff;
+  color: #dc2626;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   SUMMARY
+   ========================================================= */
+
+.network-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.network-summary-card {
+  padding: 13px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.network-summary-card span,
+.network-summary-card small,
+.network-summary-card strong {
+  display: block;
+}
+
+.network-summary-card span {
+  font-size: 9px;
+  color: #9ca3af;
+}
+
+.network-summary-card strong {
+  margin-top: 7px;
+  font-size: 22px;
+  color: #4b5563;
+}
+
+.network-summary-card small {
+  margin-top: 3px;
+  font-size: 8px;
+  color: #9ca3af;
+}
+
+
+/* =========================================================
+   SECTION
+   ========================================================= */
+
+.network-section-card {
+  margin-top: 15px;
+  padding: 15px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.network-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.network-section-header strong {
+  font-size: 11px;
+  color: #4b5563;
+}
+
+.network-section-header p {
+  margin: 4px 0 0;
+  font-size: 9px;
+  color: #9ca3af;
+}
+
+.network-section-header button {
+  border: none;
+  background: transparent;
+  color: #4f46e5;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.network-section-title {
+  margin-bottom: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+
+/* =========================================================
+   DEVICES
+   ========================================================= */
+
+.network-device-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.network-device-row {
+  min-height: 62px;
+  padding: 8px 10px;
+  display: grid;
+  grid-template-columns: 35px 1.4fr 1fr 80px 90px 70px;
+  align-items: center;
+  gap: 10px;
+  border-radius: 7px;
+  background: #f9fafb;
+}
+
+.network-device-icon {
+  width: 31px;
+  height: 31px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  color: #6b7280;
+}
+
+.network-device-info strong,
+.network-device-info span {
+  display: block;
+}
+
+.network-device-info strong {
+  font-size: 10px;
+  color: #4b5563;
+}
+
+.network-device-info span {
+  margin-top: 3px;
+  font-size: 8px;
+  color: #9ca3af;
+}
+
+.network-device-address,
+.network-device-shares {
+  font-size: 9px;
+  color: #6b7280;
+}
+
+.network-online,
+.network-offline {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+}
+
+.network-online {
+  color: #16a34a;
+}
+
+.network-offline {
+  color: #9ca3af;
+}
+
+.network-online span,
+.network-offline span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+}
+
+.network-offline span {
+  background: #d1d5db;
+}
+
+
+/* =========================================================
+   LOCATIONS
+   ========================================================= */
+
+.network-location-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+}
+
+.network-location-card {
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.network-location-card:hover {
+  background: #f9fafb;
+}
+
+.network-location-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 9px;
+  border-radius: 6px;
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.network-location-card strong,
+.network-location-card span {
+  display: block;
+}
+
+.network-location-card strong {
+  font-size: 10px;
+  color: #4b5563;
+}
+
+.network-location-card span {
+  margin-top: 4px;
+  font-size: 8px;
+  color: #9ca3af;
+}
+
+
+/* =========================================================
+   CONNECT FORM
+   ========================================================= */
+
+.network-connect-card {
+  padding: 15px;
+  margin-bottom: 15px;
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+  background: #f8f9ff;
+}
+
+.network-connect-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.network-connect-header strong {
+  font-size: 11px;
+  color: #4b5563;
+}
+
+.network-connect-header p {
+  margin: 4px 0 0;
+  font-size: 9px;
+  color: #9ca3af;
+}
+
+.network-connect-header button {
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+
+/* =========================================================
+   FORM
+   ========================================================= */
+
+.network-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.network-form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.network-form-grid label span {
+  font-size: 9px;
+  color: #6b7280;
+}
+
+.network-form-grid input,
+.network-form-grid select {
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  outline: none;
+  font-size: 10px;
+  color: #4b5563;
+}
+
+.network-form-grid input:focus,
+.network-form-grid select:focus {
+  border-color: #6366f1;
+}
+
+.network-full-field {
+  grid-column: 1 / -1;
+}
+
+.network-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+  margin-top: 13px;
+}
+
+
+/* =========================================================
+   SMB SHARES
+   ========================================================= */
+
+.network-share-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.network-share-row {
+  min-height: 60px;
+  padding: 8px 10px;
+  display: grid;
+  grid-template-columns: 35px 1fr 90px 70px;
+  align-items: center;
+  gap: 10px;
+  border-radius: 7px;
+  background: #f9fafb;
+}
+
+.network-share-icon {
+  width: 31px;
+  height: 31px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #6b7280;
+}
+
+.network-share-row strong,
+.network-share-row span {
+  display: block;
+}
+
+.network-share-row strong {
+  font-size: 10px;
+  color: #4b5563;
+}
+
+.network-share-row div:nth-child(2) span {
+  margin-top: 3px;
+  font-family: Consolas, monospace;
+  font-size: 8px;
+  color: #9ca3af;
+}
+
+.network-share-row > span {
+  font-size: 9px;
+  color: #6b7280;
+}
+
+.network-share-row button {
+  height: 28px;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  background: #ffffff;
+  color: #6b7280;
+  font-size: 9px;
+}
+
+
+/* =========================================================
+   SAVED LOCATION
+   ========================================================= */
+
+.network-saved-location {
+  min-height: 58px;
+  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 6px;
+  background: #f9fafb;
+}
+
+.network-saved-location div {
+  flex: 1;
+}
+
+.network-saved-location strong,
+.network-saved-location span {
+  display: block;
+}
+
+.network-saved-location strong {
+  font-size: 10px;
+  color: #4b5563;
+}
+
+.network-saved-location span {
+  margin-top: 3px;
+  font-family: Consolas, monospace;
+  font-size: 8px;
+  color: #9ca3af;
+}
+
+.network-saved-location button {
+  height: 28px;
+  padding: 0 9px;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  background: #ffffff;
+  color: #6b7280;
+  font-size: 9px;
+}
+
+
+/* =========================================================
+   FTP / SFTP
+   ========================================================= */
+
+.network-toggle {
+  display: flex;
+  padding: 3px;
+  gap: 2px;
+  border-radius: 6px;
+  background: #f3f4f6;
+}
+
+.network-toggle button {
+  height: 28px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #6b7280;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.network-toggle button.active {
+  background: #ffffff;
+  color: #4f46e5;
+}
+
+.network-remote-layout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 12px;
+}
+
+.network-connection-card,
+.network-remote-status {
+  padding: 15px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.network-remote-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: #f9fafb;
+}
+
+.network-remote-icon {
+  width: 55px;
+  height: 55px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  font-size: 24px;
+}
+
+.network-remote-status > strong {
+  font-size: 12px;
+  color: #4b5563;
+}
+
+.network-remote-status > span {
+  margin-top: 4px;
+  font-size: 9px;
+  color: #9ca3af;
+}
+
+.network-remote-stat {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin-top: 18px;
+}
+
+.network-remote-stat div {
+  padding: 8px;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.network-remote-stat span,
+.network-remote-stat strong {
+  display: block;
+}
+
+.network-remote-stat span {
+  font-size: 8px;
+  color: #9ca3af;
+}
+
+.network-remote-stat strong {
+  margin-top: 4px;
+  font-size: 10px;
+  color: #6b7280;
+}
+
+.network-operation-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 7px;
+}
+
+.network-operation-grid button {
+  height: 38px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #6b7280;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.network-operation-grid button:hover {
+  background: #f9fafb;
+}
+
+
+/* =========================================================
+   WEBDAV
+   ========================================================= */
+
+.network-webdav-card {
+  min-height: 75px;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 42px 1fr 120px 70px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.network-webdav-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.network-webdav-card strong,
+.network-webdav-card span {
+  display: block;
+}
+
+.network-webdav-card strong {
+  font-size: 10px;
+  color: #4b5563;
+}
+
+.network-webdav-card div:nth-child(2) span {
+  margin-top: 4px;
+  font-family: Consolas, monospace;
+  font-size: 8px;
+  color: #9ca3af;
+}
+
+.network-connection-status {
+  font-size: 9px;
+  color: #9ca3af;
+}
+
+
+/* =========================================================
+   NAS
+   ========================================================= */
+
+.network-nas-card {
+  min-height: 85px;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 45px 1.4fr 180px 100px 70px;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.network-nas-icon {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 18px;
+}
+
+.network-nas-info strong,
+.network-nas-info span,
+.network-nas-info small {
+  display: block;
+}
+
+.network-nas-info strong {
+  font-size: 11px;
+  color: #4b5563;
+}
+
+.network-nas-info span {
+  margin-top: 3px;
+  font-family: Consolas, monospace;
+  font-size: 8px;
+  color: #9ca3af;
+}
+
+.network-nas-info small {
+  margin-top: 3px;
+  font-size: 8px;
+  color: #b0b5bd;
+}
+
+.network-nas-storage strong,
+.network-nas-storage span {
+  display: block;
+}
+
+.network-nas-storage strong {
+  font-size: 10px;
+  color: #4b5563;
+}
+
+.network-nas-storage span {
+  margin-top: 3px;
+  font-size: 8px;
+  color: #9ca3af;
+}
+
+.network-nas-progress {
+  height: 6px;
+  margin-top: 6px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #e5e7eb;
+}
+
+.network-nas-progress div {
+  height: 100%;
+  border-radius: 10px;
+  background: #4f46e5;
+}
+
+.network-nas-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  color: #16a34a;
+}
+
+.network-nas-status span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+}
+
+.network-nas-details {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.network-nas-details div {
+  padding: 10px;
+  border-radius: 6px;
+  background: #f9fafb;
+}
+
+.network-nas-details span,
+.network-nas-details strong {
+  display: block;
+}
+
+.network-nas-details span {
+  font-size: 8px;
+  color: #9ca3af;
+}
+
+.network-nas-details strong {
+  margin-top: 4px;
+  font-size: 10px;
+  color: #6b7280;
+}
+
+
+/* =========================================================
+   NETWORK DRIVES
+   ========================================================= */
+
+.network-drive-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.network-drive-row {
+  min-height: 64px;
+  padding: 8px 10px;
+  display: grid;
+  grid-template-columns: 40px 1fr 90px 90px 55px 55px;
+  align-items: center;
+  gap: 8px;
+  border-radius: 7px;
+  background: #f9fafb;
+}
+
+.network-drive-letter {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  font-size: 10px;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.network-drive-info strong,
+.network-drive-info span {
+  display: block;
+}
+
+.network-drive-info strong {
+  font-size: 10px;
+  color: #4b5563;
+}
+
+.network-drive-info span {
+  margin-top: 3px;
+  font-family: Consolas, monospace;
+  font-size: 8px;
+  color: #9ca3af;
+}
+
+.network-drive-persistent {
+  font-size: 8px;
+  color: #6b7280;
+}
+
+.network-check-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0;
+  font-size: 9px;
+  color: #6b7280;
+}
+
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
+
+.network-footer {
+  min-height: 43px;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
+  color: #9ca3af;
+  font-size: 10px;
+}
+
+.network-footer > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.network-footer strong {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+
+.network-body::-webkit-scrollbar {
+  width: 7px;
+}
+
+.network-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.network-body::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 10px;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 950px) {
+
+  .network-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .network-remote-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .network-device-row {
+    grid-template-columns: 35px 1fr 100px 70px;
+  }
+
+  .network-device-address,
+  .network-device-shares {
+    display: none;
+  }
+
+  .network-nas-card {
+    grid-template-columns: 45px 1fr 150px 80px;
+  }
+
+  .network-nas-status {
+    display: none;
+  }
+
+}
+
+@media (max-width: 700px) {
+
+  .network-page {
+    padding: 14px;
+  }
+
+  .network-summary-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .network-location-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .network-operation-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .network-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .network-full-field {
+    grid-column: auto;
+  }
+
+  .network-nas-details {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .network-drive-row {
+    grid-template-columns: 40px 1fr 70px;
+  }
+
+  .network-drive-persistent,
+  .network-drive-row .network-online {
+    display: none;
+  }
+
+}
+
+@media (max-width: 500px) {
+
+  .network-status {
+    display: none;
+  }
+
+  .network-page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .network-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .network-share-row {
+    grid-template-columns: 35px 1fr 65px;
+  }
+
+  .network-share-row > span {
+    display: none;
+  }
+
+  .network-webdav-card {
+    grid-template-columns: 40px 1fr;
+  }
+
+  .network-webdav-card .network-connection-status,
+  .network-webdav-card .network-secondary-btn {
+    grid-column: 2;
+  }
+
+  .network-nas-card {
+    grid-template-columns: 40px 1fr;
+  }
+
+  .network-nas-storage,
+  .network-nas-status,
+  .network-nas-card .network-small-btn {
+    grid-column: 2;
+  }
+
+}

@@ -2128,3 +2128,5 @@ ipcMain.handle(
     return hiddenFiles.getHiddenStatuses(paths);
   },
 );
+
+require("./electron-features.cjs");

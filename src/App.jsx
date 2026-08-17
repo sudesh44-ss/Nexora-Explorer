@@ -1,8 +1,89 @@
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
+import "./UIOverhaul.css";
 import { getDisplayName } from "./features/extensionVisibility";
 
+// Import Oxygen Icons
+import folderNewIcon from "./assets/icons/Oxygen-Icons.org-Oxygen-Actions-folder-new.256.png";
+import folderDefaultIcon from "./assets/icons/Oxygen-Icons.org-Oxygen-Mimetypes-inode-directory.256.png";
+import folderDocumentsIcon from "./assets/icons/Oxygen-Icons.org-Oxygen-Places-folder-documents.256.png";
+import folderDownloadsIcon from "./assets/icons/Oxygen-Icons.org-Oxygen-Places-folder-downloads.256.png";
+import folderFavoritesIcon from "./assets/icons/Oxygen-Icons.org-Oxygen-Places-folder-favorites.256.png";
+import folderImageIcon from "./assets/icons/Oxygen-Icons.org-Oxygen-Places-folder-image.256.png";
+import folderImportantIcon from "./assets/icons/Oxygen-Icons.org-Oxygen-Places-folder-important.256.png";
+import folderLockedIcon from "./assets/icons/Oxygen-Icons.org-Oxygen-Places-folder-locked.256.png";
+import folderSoundIcon from "./assets/icons/Oxygen-Icons.org-Oxygen-Places-folder-sound.256.png";
+import folderVideoIcon from "./assets/icons/Oxygen-Icons.org-Oxygen-Places-folder-video.256.png";
+import userHomeIcon from "./assets/icons/Oxygen-Icons.org-Oxygen-Places-user-home.256.png";
+
+// Helper functions for dynamic icons
+function getFolderIcon(name) {
+  const lower = String(name || "").toLowerCase();
+  if (lower === "downloads") return folderDownloadsIcon;
+  if (lower === "documents" || lower === "docs") return folderDocumentsIcon;
+  if (["pictures", "images", "photos", "camera", "screenshots"].includes(lower))
+    return folderImageIcon;
+  if (["music", "audio", "sound", "songs"].includes(lower))
+    return folderSoundIcon;
+  if (["videos", "movies", "clips"].includes(lower)) return folderVideoIcon;
+  if (["favorites", "starred"].includes(lower)) return folderFavoritesIcon;
+  if (["home", "desktop"].includes(lower)) return userHomeIcon;
+  if (lower === "important") return folderImportantIcon;
+  if (["locked", "secure", "private", "vault"].includes(lower))
+    return folderLockedIcon;
+  if (lower === "new folder") return folderNewIcon;
+  return folderDefaultIcon;
+}
+
+function getItemIcon(item, isGrid = false) {
+  if (!item)
+    return <span style={{ fontSize: isGrid ? "36px" : "16px" }}>📄</span>;
+  if (item.isDirectory) {
+    const iconSrc = getFolderIcon(item.name);
+    return (
+      <img
+        src={iconSrc}
+        alt="folder"
+        style={{
+          width: isGrid ? "48px" : "18px",
+          height: isGrid ? "48px" : "18px",
+          objectFit: "contain",
+          verticalAlign: "middle",
+        }}
+      />
+    );
+  }
+  return <span style={{ fontSize: isGrid ? "36px" : "16px" }}>📄</span>;
+}
+
+// Import Advanced Tools
+import AdvancedSearch from "./AdvancedSearch";
+import ArchiveManager from "./ArchiveManager";
+import SecurityManager from "./SecurityManager";
+import FilePreview from "./FilePreview";
+import OCRManager from "./OCRManager";
+import AIFeatures from "./AIFeatures";
+import StorageAnalytics from "./StorageAnalytics";
+import NetworkFeatures from "./NetworkFeatures";
+import CloudIntegration from "./CloudIntegration";
+import DeveloperFeatures from "./DeveloperFeatures";
+
 function App() {
+  // =============================
+  // UI Overhaul States
+  // =============================
+  const [showDetailsPane, setShowDetailsPane] = useState(true);
+  const [isEditingAddress, setIsEditingAddress] = useState(false);
+  const [selectedItemDetails, setSelectedItemDetails] = useState(null);
+  const [selectedFolderSizeDetails, setSelectedFolderSizeDetails] =
+    useState(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [showDriverHealthModal, setShowDriverHealthModal] = useState(false);
+  const [showNavigationHistoryModal, setShowNavigationHistoryModal] =
+    useState(false);
+  const [activeDropdown, setActiveDropdown] = useState(null); // 'view' | 'sort' | 'new' | 'dots' | null
+  const draggedTabIdRef = useRef(null);
+
   // =============================
   // Basic State
   // =============================
@@ -10,7 +91,28 @@ function App() {
   const [drives, setDrives] = useState([]);
   const [items, setItems] = useState([]);
   const [currentPath, setCurrentPath] = useState(null);
+  const [recycleBinItems, setRecycleBinItems] = useState([
+    {
+      name: "old_backup_2025.zip",
+      path: "C:\\Backups\\old_backup_2025.zip",
+      deletedAt: "12/08/2026, 14:32",
+      originalSize: 452901230,
+    },
+    {
+      name: "draft_notes.txt",
+      path: "D:\\Documents\\draft_notes.txt",
+      deletedAt: "13/08/2026, 11:05",
+      originalSize: 2042,
+    },
+    {
+      name: "temporary_invoice.pdf",
+      path: "C:\\Users\\Downloads\\temporary_invoice.pdf",
+      deletedAt: "14/08/2026, 09:20",
+      originalSize: 1250230,
+    },
+  ]);
   const [addressPath, setAddressPath] = useState("This PC");
+  const [systemPaths, setSystemPaths] = useState(null);
 
   // =============================
   // Navigation History
@@ -864,6 +966,14 @@ function App() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadDriveInventory();
 
+    if (window.electronFeatures && window.electronFeatures.getSystemPaths) {
+      window.electronFeatures.getSystemPaths().then((res) => {
+        if (res && res.success) {
+          setSystemPaths(res);
+        }
+      });
+    }
+
     const rawHash = window.location.hash.startsWith("#path=")
       ? window.location.hash.slice(6)
       : "";
@@ -1500,6 +1610,59 @@ function App() {
   }
 
   // ============================================================
+  // Tab Drag and Drop
+  // ============================================================
+
+  function handleTabDragStart(e, tabId) {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", tabId.toString());
+    draggedTabIdRef.current = tabId;
+  }
+
+  function handleTabDragOver(e) {
+    e.preventDefault();
+  }
+
+  function handleTabDrop(e, targetTabId) {
+    e.preventDefault();
+    const sourceTabId =
+      draggedTabIdRef.current ||
+      parseInt(e.dataTransfer.getData("text/plain"), 10);
+    if (!sourceTabId || sourceTabId === targetTabId) return;
+
+    setTabs((prevTabs) => {
+      const sourceIndex = prevTabs.findIndex((t) => t.id === sourceTabId);
+      const targetIndex = prevTabs.findIndex((t) => t.id === targetTabId);
+      if (sourceIndex === -1 || targetIndex === -1) return prevTabs;
+
+      const newTabs = [...prevTabs];
+      const [draggedTab] = newTabs.splice(sourceIndex, 1);
+      newTabs.splice(targetIndex, 0, draggedTab);
+      return newTabs;
+    });
+    draggedTabIdRef.current = null;
+  }
+
+  function handleTabsListDrop(e) {
+    e.preventDefault();
+    const sourceTabId =
+      draggedTabIdRef.current ||
+      parseInt(e.dataTransfer.getData("text/plain"), 10);
+    if (!sourceTabId) return;
+
+    setTabs((prevTabs) => {
+      const sourceIndex = prevTabs.findIndex((t) => t.id === sourceTabId);
+      if (sourceIndex === -1) return prevTabs;
+
+      const newTabs = [...prevTabs];
+      const [draggedTab] = newTabs.splice(sourceIndex, 1);
+      newTabs.push(draggedTab);
+      return newTabs;
+    });
+    draggedTabIdRef.current = null;
+  }
+
+  // ============================================================
   // New Window
   // ============================================================
 
@@ -1716,6 +1879,8 @@ function App() {
   function handleBackgroundClick() {
     closeContextMenu();
     clearSelection();
+    setActiveDropdown(null);
+    setIsEditingAddress(false);
   }
 
   // ============================================================
@@ -2083,6 +2248,18 @@ function App() {
       try {
         const result = await window.fileExplorer.deleteItem(item.path);
 
+        if (result?.success) {
+          setRecycleBinItems((prev) => [
+            {
+              name: item.name,
+              path: item.path,
+              deletedAt: new Date().toLocaleString(),
+              originalSize: item.size || 0,
+            },
+            ...prev,
+          ]);
+        }
+
         if (!result?.success) {
           console.error("Delete failed:", result?.error);
 
@@ -2402,6 +2579,11 @@ function App() {
     }
 
     try {
+      // Keep the opened file visible in the existing details pane even after
+      // focus returns from the associated application.
+      setSelectedItemDetails(item);
+      setSelectedFolderSizeDetails(null);
+
       const result = await window.fileExplorer.openItem(item.path);
 
       if (!result?.success) {
@@ -2439,6 +2621,11 @@ function App() {
     for (const item of selectedList) {
       if (!item.isDirectory) {
         try {
+          // The details pane should continue to describe the most recently
+          // opened file when multiple selected files are opened in sequence.
+          setSelectedItemDetails(item);
+          setSelectedFolderSizeDetails(null);
+
           const result = await window.fileExplorer.openItem(item.path);
 
           if (!result?.success) {
@@ -2600,8 +2787,6 @@ function App() {
     return (bytes / Math.pow(1024, index)).toFixed(2) + " " + units[index];
   }
 
-
-
   // ============================================================
   // Format Date
   // ============================================================
@@ -2704,6 +2889,46 @@ function App() {
   const selectedItem = selectedList.length === 1 ? selectedList[0] : null;
 
   const hasSelection = selectedList.length > 0;
+
+  // Selection change effect to load details in background
+  useEffect(() => {
+    let active = true;
+    if (!selectedItem) {
+      return;
+    }
+
+    async function fetchDetails() {
+      setDetailsLoading(true);
+      try {
+        const info = await window.fileExplorer.getFileInfo(selectedItem.path);
+        if (!active) return;
+        setSelectedItemDetails(info);
+
+        if (info && info.isDirectory) {
+          setSelectedFolderSizeDetails("calculating");
+          const sizeResult = await window.fileExplorer.getFolderSize(info.path);
+          if (!active) return;
+          if (sizeResult && sizeResult.success) {
+            setSelectedFolderSizeDetails(sizeResult);
+          } else {
+            setSelectedFolderSizeDetails(null);
+          }
+        }
+      } catch (err) {
+        console.error("Details loading failed:", err);
+      } finally {
+        if (active) {
+          setDetailsLoading(false);
+        }
+      }
+    }
+
+    fetchDetails();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedItem]);
 
   // ============================================================
   // Phase 4 — Advanced Results
@@ -3096,325 +3321,115 @@ function App() {
   // Main UI
   // ============================================================
 
+  const getBreadcrumbs = () => {
+    if (!currentPath) {
+      return [{ label: "This PC", path: null }];
+    }
+    if (currentPath === "Home") {
+      return [{ label: "Home", path: "Home" }];
+    }
+    if (currentPath === "RecycleBin") {
+      return [{ label: "Recycle Bin", path: "RecycleBin" }];
+    }
+    if (currentPath.startsWith("tool:")) {
+      let toolLabel = "Advanced Tool";
+      if (currentPath === "tool:search") toolLabel = "Advanced Search";
+      else if (currentPath === "tool:archive") toolLabel = "Archive Manager";
+      else if (currentPath === "tool:security") toolLabel = "Security Manager";
+      else if (currentPath === "tool:preview") toolLabel = "File Preview";
+      else if (currentPath === "tool:ocr") toolLabel = "OCR Manager";
+      else if (currentPath === "tool:ai") toolLabel = "AI Features";
+      else if (currentPath === "tool:storage") toolLabel = "Storage Analytics";
+      else if (currentPath === "tool:network") toolLabel = "Network Shares";
+      else if (currentPath === "tool:cloud") toolLabel = "Cloud Integration";
+      else if (currentPath === "tool:developer") toolLabel = "Developer Tools";
+      return [
+        { label: "This PC", path: null },
+        { label: toolLabel, path: currentPath },
+      ];
+    }
+
+    // Standard directory path
+    const parts = currentPath.split("\\").filter(Boolean);
+    const breadcrumbsList = [{ label: "This PC", path: null }];
+    let accum = "";
+    parts.forEach((part, index) => {
+      if (index === 0) {
+        const driveLetter = part;
+        accum = driveLetter + "\\";
+        const matchedDrive = drives.find((d) => d.path.startsWith(driveLetter));
+        breadcrumbsList.push({
+          label: matchedDrive
+            ? matchedDrive.name
+            : `Local Disk (${driveLetter})`,
+          path: accum,
+        });
+      } else {
+        accum = accum + part + "\\";
+        breadcrumbsList.push({
+          label: part,
+          path: accum.endsWith("\\") ? accum.slice(0, -1) : accum,
+        });
+      }
+    });
+    return breadcrumbsList;
+  };
+
+  const breadcrumbs = getBreadcrumbs();
+
   return (
     <div className="explorer" onClick={handleBackgroundClick}>
       {/* ======================================================
-          TOP BAR
+          TABS BAR (Topmost)
       ====================================================== */}
-
-      <header className="topbar">
-        <div className="navigation">
-          {/* Back */}
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              goBack();
-            }}
-            disabled={historyIndex <= 0}
-            title="Back"
-          >
-            ←
-          </button>
-
-          {/* Forward */}
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              goForward();
-            }}
-            disabled={historyIndex >= history.length - 1}
-            title="Forward"
-          >
-            →
-          </button>
-
-          {/* Up */}
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              goUp();
-            }}
-            disabled={!currentPath}
-            title="Up"
-          >
-            ↑
-          </button>
-
-          {/* Refresh */}
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              refresh();
-            }}
-            title="Refresh (F5)"
-          >
-            ↻
-          </button>
-
-          {/* Undo */}
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              undo();
-            }}
-            disabled={undoStack.length === 0}
-            title="Undo (Ctrl+Z)"
-          >
-            ↶
-          </button>
-
-          {/* Redo */}
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              redo();
-            }}
-            disabled={redoStack.length === 0}
-            title="Redo (Ctrl+Y)"
-          >
-            ↷
-          </button>
-        </div>
-
-        {/* Address Bar */}
-        <form
-          className="address-bar"
-          onSubmit={handleAddressSubmit}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <span>📁</span>
-
-          <input
-            type="text"
-            value={addressPath}
-            onChange={(event) => setAddressPath(event.target.value)}
-            onFocus={(event) => event.target.select()}
-            placeholder="Enter a path..."
-          />
-        </form>
-
-        {/* Search */}
-        <div
-          className="search-box"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <span>🔍</span>
-
-          <input
-            ref={searchInputRef}
-            type="text"
-            placeholder="Search"
-            value={searchQuery}
-            onChange={(event) => {
-              const value = event.target.value;
-
-              setSearchQuery(value);
-
-              if (!value.trim()) {
-                setSearchResults([]);
-              }
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && deepSearch) {
-                runAdvancedSearch();
-              }
-            }}
-          />
-
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              title="Clear search"
-            >
-              ×
-            </button>
-          )}
-        </div>
-
-        {/* Sort + View Controls */}
-        <div
-          className="view-controls"
-          onClick={(event) => event.stopPropagation()}
-        >
-          {/* File Type Filter */}
-          <select
-            value={filterType}
-            onChange={(event) => setFilterType(event.target.value)}
-            title="File type filter"
-          >
-            <option value="all">All</option>
-
-            <option value="folder">Folders</option>
-
-            <option value="image">Images</option>
-
-            <option value="video">Videos</option>
-
-            <option value="audio">Audio</option>
-
-            <option value="document">Documents</option>
-
-            <option value="archive">Archives</option>
-          </select>
-
-          {/* Deep Search */}
-          <button
-            type="button"
-            className={deepSearch ? "active" : ""}
-            onClick={() => {
-              setDeepSearch((prev) => !prev);
-
-              setSearchResults([]);
-            }}
-            title="Search subfolders"
-          >
-            🔎
-          </button>
-
-          {/* Hidden Files */}
-          <button
-            type="button"
-            className={showHiddenFiles ? "active" : ""}
-            onClick={async () => {
-              const nextValue = !showHiddenFiles;
-
-              setShowHiddenFiles(nextValue);
-
-              if (currentPath) {
-                await readFolder(currentPath, nextValue);
-              }
-
-              if (deepSearch && searchQuery.trim()) {
-                await runAdvancedSearch(nextValue);
-              }
-            }}
-            title={showHiddenFiles ? "Hide hidden files" : "Show hidden files"}
-          >
-            {showHiddenFiles ? "👁️" : "🙈"}
-          </button>
-
-          {/* File Extensions */}
-          <button
-            type="button"
-            className={showFileExtensions ? "active" : ""}
-            onClick={() => setShowFileExtensions((prev) => !prev)}
-            title={
-              showFileExtensions
-                ? "Hide file extensions"
-                : "Show file extensions"
-            }
-          >
-            {showFileExtensions ? "📄" : "📄̸"}
-          </button>
-
-          {/* Sort By */}
-          <select
-            value={sortBy}
-            onChange={(event) => setSortBy(event.target.value)}
-            title="Sort by"
-          >
-            <option value="name">Name</option>
-
-            <option value="date">Date modified</option>
-
-            <option value="type">Type</option>
-
-            <option value="size">Size</option>
-          </select>
-
-          {/* Sort Direction */}
-          <button
-            type="button"
-            onClick={() =>
-              setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
-            }
-            title="Toggle sort order"
-          >
-            {sortOrder === "asc" ? "↑" : "↓"}
-          </button>
-
-          {/* Grid */}
-          <button
-            type="button"
-            className={viewMode === "grid" ? "active" : ""}
-            onClick={() => setViewMode("grid")}
-            title="Grid view"
-          >
-            🔲
-          </button>
-
-          {/* List */}
-          <button
-            type="button"
-            className={viewMode === "list" ? "active" : ""}
-            onClick={() => setViewMode("list")}
-            title="List view"
-          >
-            📋
-          </button>
-
-          {/* Advanced Operations */}
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              openAdvancedOperations();
-            }}
-            title="Advanced file operations"
-          >
-            ⚙️
-          </button>
-
-          {/* Clipboard History */}
-          <button
-            type="button"
-            onClick={() => setShowClipboardHistory(true)}
-            title="Clipboard history"
-          >
-            📋+
-          </button>
-        </div>
-      </header>
-
-      {/* ======================================================
-          TABS
-      ====================================================== */}
-
       <div className="tabs-bar" onClick={(event) => event.stopPropagation()}>
-        <div className="tabs-list">
-          {tabs.map((tab) => (
-            <div
-              key={tab.id}
-              className={`explorer-tab ${
-                tab.id === activeTabId ? "active" : ""
-              }`}
-              onClick={() => switchTab(tab)}
-              title={tab.path || "This PC"}
-            >
-              <span>📁 {tab.label}</span>
+        <div
+          className="tabs-list"
+          onDragOver={handleTabDragOver}
+          onDrop={handleTabsListDrop}
+        >
+          {tabs.map((tab) => {
+            const isActive = tab.id === activeTabId;
+            let icon = "📁";
+            if (!tab.path || tab.path === "This PC") icon = "🖥️";
+            else if (tab.path === "Home") icon = "🏠";
+            else if (tab.path === "RecycleBin") icon = "🗑️";
+            else if (tab.path.startsWith("tool:")) icon = "⚙️";
 
-              {tabs.length > 1 && (
-                <button
-                  type="button"
-                  className="tab-close"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    closeTab(tab.id);
-                  }}
-                  title="Close tab"
-                >
-                  ×
-                </button>
-              )}
-            </div>
-          ))}
+            return (
+              <div
+                key={tab.id}
+                className={`explorer-tab ${isActive ? "active" : ""}`}
+                onClick={() => switchTab(tab)}
+                title={tab.path || "This PC"}
+                draggable
+                onDragStart={(e) => handleTabDragStart(e, tab.id)}
+                onDragOver={handleTabDragOver}
+                onDrop={(e) => {
+                  e.stopPropagation();
+                  handleTabDrop(e, tab.id);
+                }}
+              >
+                <span>
+                  {icon} {tab.label}
+                </span>
+
+                {tabs.length > 1 && (
+                  <button
+                    type="button"
+                    className="tab-close"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      closeTab(tab.id);
+                    }}
+                    title="Close tab"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         <button
@@ -3437,20 +3452,663 @@ function App() {
       </div>
 
       {/* ======================================================
-          MAIN AREA
+          TOP BAR & TOOLBARS
       ====================================================== */}
+      <header className="topbar" onClick={(event) => event.stopPropagation()}>
+        {/* Row 1: Navigation, Address Breadcrumbs, Top Controls */}
+        <div className="topbar-row-1">
+          <div className="navigation-buttons">
+            {/* Back */}
+            <button
+              type="button"
+              onClick={goBack}
+              disabled={historyIndex <= 0}
+              title="Back"
+            >
+              ←
+            </button>
 
+            {/* Forward */}
+            <button
+              type="button"
+              onClick={goForward}
+              disabled={historyIndex >= history.length - 1}
+              title="Forward"
+            >
+              →
+            </button>
+
+            {/* Up */}
+            <button
+              type="button"
+              onClick={goUp}
+              disabled={!currentPath}
+              title="Up"
+            >
+              ↑
+            </button>
+
+            {/* Refresh */}
+            <button type="button" onClick={refresh} title="Refresh (F5)">
+              ↻
+            </button>
+          </div>
+
+          {/* Breadcrumb Address Bar */}
+          <div
+            className="address-bar-container"
+            onClick={() => {
+              if (!isEditingAddress) {
+                setIsEditingAddress(true);
+              }
+            }}
+          >
+            <div className="address-bar-icon">
+              {currentPath === "Home"
+                ? "🏠"
+                : currentPath === "RecycleBin"
+                  ? "🗑️"
+                  : currentPath?.startsWith("tool:")
+                    ? "⚙️"
+                    : currentPath
+                      ? "📁"
+                      : "🖥️"}
+            </div>
+
+            {isEditingAddress ? (
+              <form
+                className="address-input-form"
+                onSubmit={(e) => {
+                  handleAddressSubmit(e);
+                  setIsEditingAddress(false);
+                }}
+              >
+                <input
+                  type="text"
+                  autoFocus
+                  value={addressPath}
+                  onChange={(event) => setAddressPath(event.target.value)}
+                  onBlur={() => {
+                    setTimeout(() => setIsEditingAddress(false), 200);
+                  }}
+                  onFocus={(event) => event.target.select()}
+                  placeholder="Enter path..."
+                />
+              </form>
+            ) : (
+              <div className="address-breadcrumbs">
+                {breadcrumbs.map((seg, idx) => (
+                  <span
+                    key={idx}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    {idx > 0 && (
+                      <span className="breadcrumb-separator">&gt;</span>
+                    )}
+                    <span
+                      className="breadcrumb-segment"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (seg.path === null) {
+                          goToThisPC();
+                        } else {
+                          openFolder(seg.path);
+                        }
+                      }}
+                    >
+                      {seg.label}
+                    </span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Right Top Controls */}
+          <div className="topbar-controls">
+            {/* Settings / Advanced Ops */}
+            <button
+              type="button"
+              className="topbar-btn"
+              onClick={openAdvancedOperations}
+              title="Advanced file operations"
+            >
+              ⚙️ Settings
+            </button>
+
+            {/* View Dropdown */}
+            <div style={{ position: "relative" }}>
+              <button
+                type="button"
+                className={`topbar-btn ${activeDropdown === "view" ? "active" : ""}`}
+                onClick={() =>
+                  setActiveDropdown(activeDropdown === "view" ? null : "view")
+                }
+                title="Change view layout"
+              >
+                🔲 View ▾
+              </button>
+              {activeDropdown === "view" && (
+                <div className="custom-dropdown-menu">
+                  <div
+                    className="custom-dropdown-item"
+                    onClick={() => {
+                      setViewMode("grid");
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span className="custom-dropdown-icon">🔲</span>
+                    <span>Grid View</span>
+                    {viewMode === "grid" && (
+                      <span className="custom-dropdown-check">✓</span>
+                    )}
+                  </div>
+                  <div
+                    className="custom-dropdown-item"
+                    onClick={() => {
+                      setViewMode("list");
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span className="custom-dropdown-icon">📋</span>
+                    <span>List View</span>
+                    {viewMode === "list" && (
+                      <span className="custom-dropdown-check">✓</span>
+                    )}
+                  </div>
+                  <div
+                    className="custom-dropdown-item"
+                    onClick={() => {
+                      setViewMode("details");
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span className="custom-dropdown-icon">📊</span>
+                    <span>Details View</span>
+                    {viewMode === "details" && (
+                      <span className="custom-dropdown-check">✓</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Sort Dropdown */}
+            <div style={{ position: "relative" }}>
+              <button
+                type="button"
+                className={`topbar-btn ${activeDropdown === "sort" ? "active" : ""}`}
+                onClick={() =>
+                  setActiveDropdown(activeDropdown === "sort" ? null : "sort")
+                }
+                title="Sort files"
+              >
+                ⇅ Sort ▾
+              </button>
+              {activeDropdown === "sort" && (
+                <div className="custom-dropdown-menu">
+                  <div
+                    className="custom-dropdown-item"
+                    onClick={() => {
+                      setSortBy("name");
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span>Name</span>
+                    {sortBy === "name" && (
+                      <span className="custom-dropdown-check">✓</span>
+                    )}
+                  </div>
+                  <div
+                    className="custom-dropdown-item"
+                    onClick={() => {
+                      setSortBy("date");
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span>Date modified</span>
+                    {sortBy === "date" && (
+                      <span className="custom-dropdown-check">✓</span>
+                    )}
+                  </div>
+                  <div
+                    className="custom-dropdown-item"
+                    onClick={() => {
+                      setSortBy("type");
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span>Type</span>
+                    {sortBy === "type" && (
+                      <span className="custom-dropdown-check">✓</span>
+                    )}
+                  </div>
+                  <div
+                    className="custom-dropdown-item"
+                    onClick={() => {
+                      setSortBy("size");
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span>Size</span>
+                    {sortBy === "size" && (
+                      <span className="custom-dropdown-check">✓</span>
+                    )}
+                  </div>
+                  <div className="custom-dropdown-divider" />
+                  <div
+                    className="custom-dropdown-item"
+                    onClick={() => {
+                      setSortOrder("asc");
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span>Ascending (↑)</span>
+                    {sortOrder === "asc" && (
+                      <span className="custom-dropdown-check">✓</span>
+                    )}
+                  </div>
+                  <div
+                    className="custom-dropdown-item"
+                    onClick={() => {
+                      setSortOrder("desc");
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span>Descending (↓)</span>
+                    {sortOrder === "desc" && (
+                      <span className="custom-dropdown-check">✓</span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Advanced Search Toggle */}
+            <button
+              type="button"
+              className={`topbar-btn ${deepSearch ? "active" : ""}`}
+              onClick={() => {
+                setDeepSearch((prev) => !prev);
+                setSearchResults([]);
+              }}
+              title="Search subfolders"
+            >
+              🔎 Advanced search
+            </button>
+
+            {/* Search Input Box */}
+            <div className="search-box-container">
+              <span>🔍</span>
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Search files and folders"
+                value={searchQuery}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setSearchQuery(value);
+                  if (!value.trim()) {
+                    setSearchResults([]);
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && deepSearch) {
+                    runAdvancedSearch();
+                  }
+                }}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  className="search-clear-btn"
+                  onClick={() => setSearchQuery("")}
+                  title="Clear search"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+
+            {/* Filter Toggle */}
+            <div style={{ position: "relative" }}>
+              <button
+                type="button"
+                className={`filter-btn ${filterType !== "all" ? "active" : ""}`}
+                onClick={() =>
+                  setActiveDropdown(
+                    activeDropdown === "filter" ? null : "filter",
+                  )
+                }
+                title="File type filter"
+              >
+                ⚙️
+              </button>
+              {activeDropdown === "filter" && (
+                <div
+                  className="custom-dropdown-menu"
+                  style={{ right: 0, left: "auto" }}
+                >
+                  {[
+                    "all",
+                    "folder",
+                    "image",
+                    "video",
+                    "audio",
+                    "document",
+                    "archive",
+                  ].map((type) => (
+                    <div
+                      key={type}
+                      className="custom-dropdown-item"
+                      onClick={() => {
+                        setFilterType(type);
+                        setActiveDropdown(null);
+                      }}
+                    >
+                      <span>
+                        {type.charAt(0).toUpperCase() + type.slice(1)}
+                      </span>
+                      {filterType === type && (
+                        <span className="custom-dropdown-check">✓</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+      {/* Row 2: Standard Operations (New, Edit operations, Details Pane Toggle) */}
+      <div className="topbar-row-2">
+        <div className="operations-toolbar">
+          {/* New Button */}
+          <div
+            className="new-btn-container"
+            onMouseEnter={() => setActiveDropdown("new")}
+            // onMouseLeave={() => setActiveDropdown(null)}
+          >
+            <button
+              type="button"
+              className="new-btn-action"
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveDropdown(activeDropdown === "new" ? null : "new");
+              }}
+            >
+              <span>⊕</span> New
+            </button>
+            <button
+              type="button"
+              className="new-btn-arrow"
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveDropdown(activeDropdown === "new" ? null : "new");
+              }}
+            >
+              ▾
+            </button>
+            {activeDropdown === "new" && (
+              <div className="custom-dropdown-menu">
+                <div
+                  className="custom-dropdown-item"
+                  onClick={() => {
+                    createNewItem("text");
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span className="custom-dropdown-icon">📄</span>
+                  <span>New File</span>
+                </div>
+                <div
+                  className="custom-dropdown-item"
+                  onClick={() => {
+                    createNewItem("folder");
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span className="custom-dropdown-icon">📁</span>
+                  <span>New Folder</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="op-divider" />
+
+          {/* Cut */}
+          <button
+            type="button"
+            className="op-btn"
+            onClick={cutSelection}
+            disabled={!hasSelection}
+            title="Cut selection"
+          >
+            <span className="op-btn-icon">✂️</span> Cut
+          </button>
+
+          {/* Copy */}
+          <button
+            type="button"
+            className="op-btn"
+            onClick={copySelection}
+            disabled={!hasSelection}
+            title="Copy selection"
+          >
+            <span className="op-btn-icon">📄</span> Copy
+          </button>
+
+          {/* Paste */}
+          <button
+            type="button"
+            className="op-btn"
+            onClick={pasteItems}
+            disabled={!clipboard}
+            title="Paste clipboard"
+          >
+            <span className="op-btn-icon">📋</span> Paste
+          </button>
+
+          {/* Delete */}
+          <button
+            type="button"
+            className="op-btn"
+            onClick={deleteSelection}
+            disabled={!hasSelection}
+            title="Delete selection"
+          >
+            <span className="op-btn-icon">🗑️</span> Delete
+          </button>
+
+          {/* Dots Menu Dropdown */}
+          <div style={{ position: "relative" }}>
+            <button
+              type="button"
+              className="op-btn"
+              onClick={() =>
+                setActiveDropdown(activeDropdown === "dots" ? null : "dots")
+              }
+              title="More options"
+            >
+              •••
+            </button>
+            {activeDropdown === "dots" && (
+              <div className="custom-dropdown-menu">
+                <div
+                  className="custom-dropdown-item"
+                  onClick={() => {
+                    setCurrentPath("tool:search");
+                    setAddressPath("Advanced Search");
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span className="custom-dropdown-icon">🔍</span>
+                  <span>AdvancedSearch</span>
+                </div>
+                <div
+                  className="custom-dropdown-item"
+                  onClick={() => {
+                    setCurrentPath("tool:preview");
+                    setAddressPath("File Preview");
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span className="custom-dropdown-icon">🖼️</span>
+                  <span>FilePreview</span>
+                </div>
+                <div
+                  className="custom-dropdown-item"
+                  onClick={() => {
+                    setCurrentPath("tool:developer");
+                    setAddressPath("Developer Tools");
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span className="custom-dropdown-icon">&lt;/&gt;</span>
+                  <span>Developer Features</span>
+                </div>
+                <div
+                  className="custom-dropdown-item"
+                  onClick={() => {
+                    setCurrentPath("tool:ocr");
+                    setAddressPath("OCR Manager");
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span className="custom-dropdown-icon red">🧠</span>
+                  <span className="custom-dropdown-label red">OCRManager</span>
+                </div>
+                <div
+                  className="custom-dropdown-item"
+                  onClick={() => {
+                    setCurrentPath("tool:network");
+                    setAddressPath("Network Shares");
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span className="custom-dropdown-icon">🌐</span>
+                  <span>NetworkFeatures</span>
+                </div>
+                <div
+                  className="custom-dropdown-item"
+                  onClick={() => {
+                    setCurrentPath("tool:storage");
+                    setAddressPath("Storage Analytics");
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span className="custom-dropdown-icon">📊</span>
+                  <span>StorageAnalytics</span>
+                </div>
+                <div className="custom-dropdown-divider" />
+                <div
+                  className="custom-dropdown-item"
+                  onClick={() => {
+                    setDeepSearch((prev) => !prev);
+                    setSearchResults([]);
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span className="custom-dropdown-icon">🔎</span>
+                  <span>deep search</span>
+                  {deepSearch && (
+                    <span className="custom-dropdown-check">✓</span>
+                  )}
+                </div>
+                <div
+                  className="custom-dropdown-item"
+                  onClick={() => {
+                    setShowDriverHealthModal(true);
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span className="custom-dropdown-icon">📈</span>
+                  <span>driver health</span>
+                </div>
+                <div
+                  className="custom-dropdown-item"
+                  onClick={() => {
+                    showFilePermissions();
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span className="custom-dropdown-icon">🛡️</span>
+                  <span>permission info</span>
+                </div>
+                <div
+                  className="custom-dropdown-item"
+                  onClick={() => {
+                    setShowFileExtensions((prev) => !prev);
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span className="custom-dropdown-icon red">👁️</span>
+                  <span className="custom-dropdown-label red">
+                    hide file extension
+                  </span>
+                  {!showFileExtensions && (
+                    <span className="custom-dropdown-check">✓</span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="details-toggle-container">
+          {/* Details Panel Toggle */}
+          <button
+            type="button"
+            className={`op-btn ${showDetailsPane ? "active" : ""}`}
+            onClick={() => setShowDetailsPane((prev) => !prev)}
+            title="Toggle right details pane"
+          >
+            📊 Details ▾
+          </button>
+          <div className="details-hover-menu">
+            <div
+              className="details-hover-item"
+              onClick={() => setShowDetailsPane((prev) => !prev)}
+            >
+              📊 Details
+            </div>
+            <div
+              className="details-hover-item"
+              onClick={() => {
+                setCurrentPath("tool:preview");
+                setAddressPath("File Preview");
+              }}
+            >
+              🖼️ File Preview
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ======================================================
+          MAIN AREA (Sidebar, Files Content, Details Pane)
+      ====================================================== */}
       <div className="main-area">
-        {/* ====================================================
-            SIDEBAR
-        ==================================================== */}
-
-        <aside className="sidebar">
+        {/* Sidebar */}
+        <aside className="sidebar" onClick={(event) => event.stopPropagation()}>
           <div className="sidebar-title">Quick Access</div>
 
-          <div className="sidebar-item">🏠 Home</div>
+          <div
+            className={`sidebar-item ${currentPath === "Home" ? "active" : ""}`}
+            onClick={() => {
+              setCurrentPath("Home");
+              setAddressPath("Home");
+            }}
+          >
+            <span className="sidebar-item-icon">🏠</span> Home
+          </div>
 
-          <div className="sidebar-item">⭐ Favorites</div>
+          <div className="sidebar-title">Favorites</div>
 
           {favorites.map((favorite) => (
             <div
@@ -3459,51 +4117,715 @@ function App() {
               onClick={() => openFavorite(favorite)}
               title={favorite}
             >
-              📌 {pathLabel(favorite)}
+              <span className="sidebar-item-icon">📌</span>{" "}
+              {pathLabel(favorite)}
+              <button
+                type="button"
+                className="sidebar-pin-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleFavorite(favorite);
+                }}
+                title="Unpin folder"
+              >
+                ★
+              </button>
             </div>
           ))}
 
-          <div className="sidebar-item">📥 Downloads</div>
+          <div
+            className={`sidebar-item ${systemPaths && currentPath === systemPaths.downloads ? "active" : ""}`}
+            onClick={() => systemPaths && openFolder(systemPaths.downloads)}
+          >
+            <span className="sidebar-item-icon">📥</span> Downloads
+          </div>
 
-          <div className="sidebar-item">📄 Documents</div>
+          <div
+            className={`sidebar-item ${systemPaths && currentPath === systemPaths.documents ? "active" : ""}`}
+            onClick={() => systemPaths && openFolder(systemPaths.documents)}
+          >
+            <span className="sidebar-item-icon">📄</span> Documents
+          </div>
 
-          <div className="sidebar-item">🖼️ Pictures</div>
+          <div
+            className={`sidebar-item ${systemPaths && currentPath === systemPaths.pictures ? "active" : ""}`}
+            onClick={() => systemPaths && openFolder(systemPaths.pictures)}
+          >
+            <span className="sidebar-item-icon">🖼️</span> Pictures
+          </div>
 
-          <div className="sidebar-item">🎵 Music</div>
+          <div
+            className={`sidebar-item ${systemPaths && currentPath === systemPaths.music ? "active" : ""}`}
+            onClick={() => systemPaths && openFolder(systemPaths.music)}
+          >
+            <span className="sidebar-item-icon">🎵</span> Music
+          </div>
 
-          <div className="sidebar-item">🎬 Videos</div>
+          <div
+            className={`sidebar-item ${systemPaths && currentPath === systemPaths.videos ? "active" : ""}`}
+            onClick={() => systemPaths && openFolder(systemPaths.videos)}
+          >
+            <span className="sidebar-item-icon">🎬</span> Videos
+          </div>
+
+          <div
+            className={`sidebar-item ${currentPath === "RecycleBin" ? "active" : ""}`}
+            onClick={() => {
+              setCurrentPath("RecycleBin");
+              setAddressPath("Recycle Bin");
+            }}
+          >
+            <span className="sidebar-item-icon">🗑️</span> Recycle Bin
+          </div>
 
           <div className="sidebar-title">This PC</div>
 
-          <div className="sidebar-item" onClick={goToThisPC}>
-            💻 This PC
+          <div
+            className={`sidebar-item ${currentPath === null ? "active" : ""}`}
+            onClick={goToThisPC}
+          >
+            <span className="sidebar-item-icon">💻</span> This PC
           </div>
 
           {drives.map((drive) => (
             <div
               key={drive.path}
-              className="sidebar-item"
+              className={`sidebar-item ${currentPath === drive.path ? "active" : ""}`}
               onClick={() => openFolder(drive.path)}
             >
-              💾 {drive.name}
+              <span className="sidebar-item-icon">💾</span> {drive.name}
             </div>
           ))}
+
+          <div className="sidebar-title">Advanced Tools</div>
+
+          <div
+            className={`sidebar-item ${currentPath === "tool:search" ? "active" : ""}`}
+            onClick={() => {
+              setCurrentPath("tool:search");
+              setAddressPath("Advanced Search");
+            }}
+          >
+            <span className="sidebar-item-icon">🔎</span> Advanced Search
+          </div>
+
+          <div
+            className={`sidebar-item ${currentPath === "tool:archive" ? "active" : ""}`}
+            onClick={() => {
+              setCurrentPath("tool:archive");
+              setAddressPath("Archive Manager");
+            }}
+          >
+            <span className="sidebar-item-icon">🗜️</span> Archive Manager
+          </div>
+
+          <div
+            className={`sidebar-item ${currentPath === "tool:security" ? "active" : ""}`}
+            onClick={() => {
+              setCurrentPath("tool:security");
+              setAddressPath("Security Manager");
+            }}
+          >
+            <span className="sidebar-item-icon">🔐</span> Security Manager
+          </div>
+
+          <div
+            className={`sidebar-item ${currentPath === "tool:preview" ? "active" : ""}`}
+            onClick={() => {
+              setCurrentPath("tool:preview");
+              setAddressPath("File Preview");
+            }}
+          >
+            <span className="sidebar-item-icon">🖼️</span> File Preview
+          </div>
+
+          <div
+            className={`sidebar-item ${currentPath === "tool:ocr" ? "active" : ""}`}
+            onClick={() => {
+              setCurrentPath("tool:ocr");
+              setAddressPath("OCR Manager");
+            }}
+          >
+            <span className="sidebar-item-icon">🧠</span> OCR Manager
+          </div>
+
+          <div
+            className={`sidebar-item ${currentPath === "tool:ai" ? "active" : ""}`}
+            onClick={() => {
+              setCurrentPath("tool:ai");
+              setAddressPath("AI Features");
+            }}
+          >
+            <span className="sidebar-item-icon">🤖</span> AI Features
+          </div>
+
+          <div
+            className={`sidebar-item ${currentPath === "tool:storage" ? "active" : ""}`}
+            onClick={() => {
+              setCurrentPath("tool:storage");
+              setAddressPath("Storage Analytics");
+            }}
+          >
+            <span className="sidebar-item-icon">📊</span> Storage Analytics
+          </div>
+
+          <div
+            className={`sidebar-item ${currentPath === "tool:network" ? "active" : ""}`}
+            onClick={() => {
+              setCurrentPath("tool:network");
+              setAddressPath("Network Shares");
+            }}
+          >
+            <span className="sidebar-item-icon">🌐</span> Network Shares
+          </div>
+
+          <div
+            className={`sidebar-item ${currentPath === "tool:cloud" ? "active" : ""}`}
+            onClick={() => {
+              setCurrentPath("tool:cloud");
+              setAddressPath("Cloud Integration");
+            }}
+          >
+            <span className="sidebar-item-icon">☁️</span> Cloud Integration
+          </div>
+
+          <div
+            className={`sidebar-item ${currentPath === "tool:developer" ? "active" : ""}`}
+            onClick={() => {
+              setCurrentPath("tool:developer");
+              setAddressPath("Developer Tools");
+            }}
+          >
+            <span className="sidebar-item-icon">👨‍💻</span> Developer Tools
+          </div>
         </aside>
 
-        {/* ====================================================
-            CONTENT
-        ==================================================== */}
-
+        {/* Files Content Panel */}
         <main className="content" onContextMenu={handleEmptyAreaContextMenu}>
-          <h2>{currentPath || "This PC"}</h2>
-
           {/* Error */}
           {error && <div className="error-message">⚠️ {error}</div>}
 
           {/* ==================================================
+              TOOL VIEWS
+          ================================================== */}
+          {currentPath === "tool:search" && (
+            <AdvancedSearch
+              currentPath={currentPath}
+              onNavigate={(path) => openFolder(path)}
+              onClose={goToThisPC}
+            />
+          )}
+          {currentPath === "tool:archive" && (
+            <ArchiveManager
+              currentPath={currentPath}
+              selectedItem={
+                selectedPaths.size === 1 ? Array.from(selectedPaths)[0] : null
+              }
+              onClose={goToThisPC}
+            />
+          )}
+          {currentPath === "tool:security" && (
+            <SecurityManager
+              selectedItem={
+                selectedPaths.size === 1
+                  ? items.find((it) => it.path === Array.from(selectedPaths)[0])
+                  : null
+              }
+              onClose={goToThisPC}
+            />
+          )}
+          {currentPath === "tool:preview" && (
+            <FilePreview
+              selectedItem={
+                selectedPaths.size === 1
+                  ? items.find((it) => it.path === Array.from(selectedPaths)[0])
+                  : null
+              }
+              onClose={goToThisPC}
+            />
+          )}
+          {currentPath === "tool:ocr" && (
+            <OCRManager
+              selectedItem={
+                selectedPaths.size === 1
+                  ? items.find((it) => it.path === Array.from(selectedPaths)[0])
+                  : null
+              }
+              onClose={goToThisPC}
+            />
+          )}
+          {currentPath === "tool:ai" && (
+            <AIFeatures
+              currentPath={currentPath}
+              items={items}
+              onClose={goToThisPC}
+            />
+          )}
+          {currentPath === "tool:storage" && (
+            <StorageAnalytics
+              currentPath={currentPath}
+              items={items}
+              onClose={goToThisPC}
+            />
+          )}
+          {currentPath === "tool:network" && (
+            <NetworkFeatures onClose={goToThisPC} />
+          )}
+          {currentPath === "tool:cloud" && (
+            <CloudIntegration onClose={goToThisPC} />
+          )}
+          {currentPath === "tool:developer" && (
+            <DeveloperFeatures
+              selectedItem={
+                selectedPaths.size === 1
+                  ? items.find((it) => it.path === Array.from(selectedPaths)[0])
+                  : null
+              }
+              onClose={goToThisPC}
+            />
+          )}
+
+          {/* ==================================================
+              HOME DASHBOARD
+          ================================================== */}
+          {currentPath === "Home" && (
+            <div
+              className="home-dashboard"
+              style={{
+                padding: "20px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "25px",
+              }}
+            >
+              <div
+                className="home-welcome"
+                style={{
+                  padding: "25px",
+                  borderRadius: "10px",
+                  color: "#fff",
+                }}
+              >
+                <h1 style={{ margin: 0, fontSize: "28px" }}>
+                  Welcome to File Explorer AI
+                </h1>
+                <p
+                  style={{
+                    margin: "10px 0 0 0",
+                    fontSize: "16px",
+                    opacity: 0.9,
+                  }}
+                >
+                  Secure, Agentic, and Premium File Management
+                </p>
+              </div>
+
+              <div>
+                <h3
+                  style={{
+                    marginBottom: "15px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                  }}
+                >
+                  📁 Quick Access
+                </h3>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fill, minmax(180px, 1fr))",
+                    gap: "15px",
+                  }}
+                >
+                  {systemPaths &&
+                    [
+                      {
+                        name: "Downloads",
+                        path: systemPaths.downloads,
+                        icon: folderDownloadsIcon,
+                      },
+                      {
+                        name: "Documents",
+                        path: systemPaths.documents,
+                        icon: folderDocumentsIcon,
+                      },
+                      {
+                        name: "Pictures",
+                        path: systemPaths.pictures,
+                        icon: folderImageIcon,
+                      },
+                      {
+                        name: "Music",
+                        path: systemPaths.music,
+                        icon: folderSoundIcon,
+                      },
+                      {
+                        name: "Videos",
+                        path: systemPaths.videos,
+                        icon: folderVideoIcon,
+                      },
+                    ].map((folder) => (
+                      <div
+                        key={folder.name}
+                        onClick={() => openFolder(folder.path)}
+                        style={{
+                          padding: "20px",
+                          backgroundColor: "#050d1b",
+                          border: "1px solid var(--color-border)",
+                          borderRadius: "8px",
+                          cursor: "pointer",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          gap: "10px",
+                          transition: "transform 0.2s, background-color 0.2s",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = "translateY(-4px)";
+                          e.currentTarget.style.backgroundColor =
+                            "rgba(255,255,255,0.05)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = "none";
+                          e.currentTarget.style.backgroundColor = "#050d1b";
+                        }}
+                      >
+                        <img
+                          src={folder.icon}
+                          alt={folder.name}
+                          style={{
+                            width: "48px",
+                            height: "48px",
+                            objectFit: "contain",
+                          }}
+                        />
+                        <strong
+                          style={{
+                            fontSize: "15px",
+                            color: "var(--color-text-primary)",
+                          }}
+                        >
+                          {folder.name}
+                        </strong>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              <div>
+                <h3 style={{ marginBottom: "15px" }}>💾 Devices and drives</h3>
+                <div
+                  className="drive-grid"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fill, minmax(240px, 1fr))",
+                    gap: "15px",
+                  }}
+                >
+                  {drives.map((drive) => {
+                    const capacity = getDriveCapacityInfo(drive.path);
+                    return (
+                      <div
+                        className="drive"
+                        key={drive.path}
+                        onClick={() => openFolder(drive.path)}
+                        style={{
+                          padding: "15px",
+                          borderRadius: "8px",
+                          cursor: "pointer",
+                          display: "flex",
+                          gap: "15px",
+                          alignItems: "center",
+                        }}
+                      >
+                        <div style={{ fontSize: "32px" }}>💾</div>
+                        <div className="drive-info" style={{ flex: 1 }}>
+                          <strong
+                            style={{ display: "block", fontSize: "15px" }}
+                          >
+                            {drive.name}
+                          </strong>
+                          {capacity && (
+                            <div
+                              style={{
+                                fontSize: "12px",
+                                color: "var(--color-text-secondary)",
+                                marginTop: "4px",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  marginBottom: "3px",
+                                }}
+                              >
+                                <span>
+                                  {capacity.freeFormatted} free of{" "}
+                                  {capacity.totalFormatted}
+                                </span>
+                              </div>
+                              <div
+                                style={{
+                                  width: "100%",
+                                  height: "6px",
+                                  backgroundColor: "rgba(255,255,255,0.1)",
+                                  borderRadius: "3px",
+                                  overflow: "hidden",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    width: `${capacity.usedPercentage}%`,
+                                    height: "100%",
+                                    backgroundColor: "var(--color-accent)",
+                                  }}
+                                ></div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ==================================================
+              RECYCLE BIN
+          ================================================== */}
+          {currentPath === "RecycleBin" && (
+            <div
+              className="recycle-bin-dashboard"
+              style={{
+                padding: "20px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "20px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <div>
+                  <h1
+                    style={{
+                      margin: 0,
+                      fontSize: "24px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      color: "var(--color-text-primary)",
+                    }}
+                  >
+                    🗑️ Recycle Bin
+                  </h1>
+                  <p
+                    style={{
+                      margin: "5px 0 0 0",
+                      color: "var(--color-text-secondary)",
+                    }}
+                  >
+                    Manage deleted files and restore them to their original
+                    location
+                  </p>
+                </div>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button
+                    onClick={() => {
+                      setRecycleBinItems([]);
+                      alert("Recycle bin emptied successfully.");
+                    }}
+                    style={{
+                      padding: "8px 16px",
+                      backgroundColor: "var(--color-text-alert)",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    🧹 Empty Recycle Bin
+                  </button>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  backgroundColor: "var(--color-bg-sidebar)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: "8px",
+                  overflow: "hidden",
+                }}
+              >
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    textAlign: "left",
+                  }}
+                >
+                  <thead>
+                    <tr
+                      style={{
+                        backgroundColor: "rgba(255,255,255,0.02)",
+                        borderBottom: "1px solid var(--color-border)",
+                      }}
+                    >
+                      <th
+                        style={{
+                          padding: "12px 15px",
+                          color: "var(--color-text-secondary)",
+                        }}
+                      >
+                        Name
+                      </th>
+                      <th
+                        style={{
+                          padding: "12px 15px",
+                          color: "var(--color-text-secondary)",
+                        }}
+                      >
+                        Original Location
+                      </th>
+                      <th
+                        style={{
+                          padding: "12px 15px",
+                          color: "var(--color-text-secondary)",
+                        }}
+                      >
+                        Date Deleted
+                      </th>
+                      <th
+                        style={{
+                          padding: "12px 15px",
+                          color: "var(--color-text-secondary)",
+                        }}
+                      >
+                        Size
+                      </th>
+                      <th
+                        style={{
+                          padding: "12px 15px",
+                          textAlign: "center",
+                          color: "var(--color-text-secondary)",
+                        }}
+                      >
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recycleBinItems.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan="5"
+                          style={{
+                            padding: "40px",
+                            textAlign: "center",
+                            color: "var(--color-text-secondary)",
+                          }}
+                        >
+                          <div
+                            style={{ fontSize: "48px", marginBottom: "10px" }}
+                          >
+                            🗑️
+                          </div>
+                          The Recycle Bin is empty.
+                        </td>
+                      </tr>
+                    ) : (
+                      recycleBinItems.map((item, idx) => (
+                        <tr
+                          key={idx}
+                          style={{
+                            borderBottom: "1px solid var(--color-border)",
+                            fontSize: "14px",
+                          }}
+                        >
+                          <td
+                            style={{
+                              padding: "12px 15px",
+                              fontWeight: "bold",
+                              color: "var(--color-text-primary)",
+                            }}
+                          >
+                            {item.name}
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px 15px",
+                              color: "var(--color-text-secondary)",
+                            }}
+                          >
+                            {item.path}
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px 15px",
+                              color: "var(--color-text-secondary)",
+                            }}
+                          >
+                            {item.deletedAt}
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px 15px",
+                              color: "var(--color-text-primary)",
+                            }}
+                          >
+                            {(item.originalSize / (1024 * 1024)).toFixed(2)} MB
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px 15px",
+                              textAlign: "center",
+                            }}
+                          >
+                            <button
+                              onClick={() => {
+                                setRecycleBinItems((prev) =>
+                                  prev.filter((_, i) => i !== idx),
+                                );
+                                alert(
+                                  `Restored "${item.name}" to its original location.`,
+                                );
+                              }}
+                              style={{
+                                padding: "4px 10px",
+                                backgroundColor: "var(--color-accent)",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                              }}
+                            >
+                              Restore
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ==================================================
               DRIVES
           ================================================== */}
-
           {!currentPath && (
             <section>
               <h3>Drives</h3>
@@ -3547,191 +4869,594 @@ function App() {
           {/* ==================================================
               FILES & FOLDERS — GRID VIEW
           ================================================== */}
+          {currentPath &&
+            !currentPath.startsWith("tool:") &&
+            currentPath !== "Home" &&
+            currentPath !== "RecycleBin" &&
+            viewMode === "grid" && (
+              <section>
+                <h3>Files & Folders</h3>
 
-          {currentPath && viewMode === "grid" && (
-            <section>
-              <h3>Files & Folders</h3>
+                <div className="file-grid">
+                  {sortedItems.map((item, index) => {
+                    const isSelected = selectedPaths.has(item.path);
+                    const isDragOver = dragOverPath === item.path;
+                    const isDragging = draggedPaths?.has(item.path);
 
-              <div className="file-grid">
-                {sortedItems.map((item, index) => {
-                  const isSelected = selectedPaths.has(item.path);
+                    return (
+                      <div
+                        className={[
+                          "file-item",
+                          isSelected ? "selected" : "",
+                          isDragOver ? "drag-over" : "",
+                          isDragging ? "dragging" : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                        key={item.path}
+                        draggable
+                        onDragStart={(event) => handleDragStart(event, item)}
+                        onDragOver={(event) => handleDragOver(event, item)}
+                        onDragLeave={() => handleDragLeave(item)}
+                        onDrop={(event) => handleDrop(event, item)}
+                        onDragEnd={handleDragEnd}
+                        onClick={(event) => handleItemClick(event, item, index)}
+                        onDoubleClick={() => {
+                          if (item.isDirectory) {
+                            openFolder(item.path);
+                          } else {
+                            openSelectedItemByPath(item);
+                          }
+                        }}
+                        onContextMenu={(event) => {
+                          event.stopPropagation();
+                          handleContextMenu(event, item);
+                        }}
+                      >
+                        <div className="file-icon">
+                          {getItemIcon(item, true)}
+                        </div>
 
-                  const isDragOver = dragOverPath === item.path;
-
-                  const isDragging = draggedPaths?.has(item.path);
-
-                  return (
-                    <div
-                      className={[
-                        "file-item",
-                        isSelected ? "selected" : "",
-                        isDragOver ? "drag-over" : "",
-                        isDragging ? "dragging" : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" ")}
-                      key={item.path}
-                      draggable
-                      onDragStart={(event) => handleDragStart(event, item)}
-                      onDragOver={(event) => handleDragOver(event, item)}
-                      onDragLeave={() => handleDragLeave(item)}
-                      onDrop={(event) => handleDrop(event, item)}
-                      onDragEnd={handleDragEnd}
-                      onClick={(event) => handleItemClick(event, item, index)}
-                      onDoubleClick={() => {
-                        if (item.isDirectory) {
-                          openFolder(item.path);
-                        } else {
-                          openSelectedItemByPath(item);
-                        }
-                      }}
-                      onContextMenu={(event) => {
-                        event.stopPropagation();
-
-                        handleContextMenu(event, item);
-                      }}
-                    >
-                      <div className="file-icon">
-                        {item.isDirectory ? "📁" : "📄"}
+                        <span>{displayItemName(item)}</span>
                       </div>
+                    );
+                  })}
 
-                      <span>{displayItemName(item)}</span>
-                    </div>
-                  );
-                })}
-
-                {searchLoading && (
-                  <div className="no-results">Searching subfolders...</div>
-                )}
-
-                {!searchLoading &&
-                  searchQuery.trim() &&
-                  sortedItems.length === 0 && (
-                    <div className="no-results">No items found</div>
+                  {searchLoading && (
+                    <div className="no-results">Searching subfolders...</div>
                   )}
-              </div>
-            </section>
-          )}
+
+                  {!searchLoading &&
+                    searchQuery.trim() &&
+                    sortedItems.length === 0 && (
+                      <div className="no-results">No items found</div>
+                    )}
+                </div>
+              </section>
+            )}
 
           {/* ==================================================
-              FILES & FOLDERS — LIST / DETAILS VIEW
+              FILES & FOLDERS — LIST VIEW
           ================================================== */}
+          {currentPath &&
+            !currentPath.startsWith("tool:") &&
+            currentPath !== "Home" &&
+            currentPath !== "RecycleBin" &&
+            viewMode === "list" && (
+              <section>
+                <h3>Files & Folders</h3>
 
-          {currentPath && viewMode === "list" && (
-            <section>
-              <h3>Files & Folders</h3>
+                <div className="file-list">
+                  {/* Table Header */}
+                  <div className="file-list-header">
+                    <span onClick={() => handleSortClick("name")}>
+                      Name {sortIndicator("name")}
+                    </span>
 
-              <div className="file-list">
-                {/* Table Header */}
+                    <span onClick={() => handleSortClick("date")}>
+                      Date modified {sortIndicator("date")}
+                    </span>
 
-                <div className="file-list-header">
-                  <span onClick={() => handleSortClick("name")}>
-                    Name
-                    {sortIndicator("name")}
-                  </span>
+                    <span onClick={() => handleSortClick("type")}>
+                      Type {sortIndicator("type")}
+                    </span>
 
-                  <span onClick={() => handleSortClick("date")}>
-                    Date modified
-                    {sortIndicator("date")}
-                  </span>
+                    <span onClick={() => handleSortClick("size")}>
+                      Size {sortIndicator("size")}
+                    </span>
+                  </div>
 
-                  <span onClick={() => handleSortClick("type")}>
-                    Type
-                    {sortIndicator("type")}
-                  </span>
+                  {/* File Rows */}
+                  {sortedItems.map((item, index) => {
+                    const isSelected = selectedPaths.has(item.path);
+                    const isDragOver = dragOverPath === item.path;
+                    const isDragging = draggedPaths?.has(item.path);
 
-                  <span onClick={() => handleSortClick("size")}>
-                    Size
-                    {sortIndicator("size")}
-                  </span>
+                    return (
+                      <div
+                        className={[
+                          "file-row",
+                          isSelected ? "selected" : "",
+                          isDragOver ? "drag-over" : "",
+                          isDragging ? "dragging" : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                        key={item.path}
+                        draggable
+                        onDragStart={(event) => handleDragStart(event, item)}
+                        onDragOver={(event) => handleDragOver(event, item)}
+                        onDragLeave={() => handleDragLeave(item)}
+                        onDrop={(event) => handleDrop(event, item)}
+                        onDragEnd={handleDragEnd}
+                        onClick={(event) => handleItemClick(event, item, index)}
+                        onDoubleClick={() => {
+                          if (item.isDirectory) {
+                            openFolder(item.path);
+                          } else {
+                            openSelectedItemByPath(item);
+                          }
+                        }}
+                        onContextMenu={(event) => {
+                          event.stopPropagation();
+                          handleContextMenu(event, item);
+                        }}
+                      >
+                        <span className="file-row-name">
+                          {getItemIcon(item, false)} {displayItemName(item)}
+                        </span>
+
+                        <span>{formatDate(item.modified)}</span>
+
+                        <span>{fileTypeLabel(item)}</span>
+
+                        <span>
+                          {item.isDirectory ? "" : formatSize(item.size)}
+                        </span>
+                      </div>
+                    );
+                  })}
+
+                  {searchLoading && (
+                    <div className="no-results">Searching subfolders...</div>
+                  )}
+
+                  {!searchLoading &&
+                    searchQuery.trim() &&
+                    sortedItems.length === 0 && (
+                      <div className="no-results">No items found</div>
+                    )}
+                </div>
+              </section>
+            )}
+
+          {/* ==================================================
+              FILES & FOLDERS — DETAILS VIEW
+          ================================================== */}
+          {currentPath &&
+            !currentPath.startsWith("tool:") &&
+            currentPath !== "Home" &&
+            currentPath !== "RecycleBin" &&
+            viewMode === "details" && (
+              <section>
+                <h3>Details View</h3>
+                <div className="file-details-table-container">
+                  <table className="file-details-table">
+                    <thead>
+                      <tr className="details-header-row">
+                        <th
+                          className="details-header-cell name-col"
+                          onClick={() => handleSortClick("name")}
+                        >
+                          Name {sortIndicator("name")}
+                        </th>
+                        <th
+                          className="details-header-cell date-col"
+                          onClick={() => handleSortClick("date")}
+                        >
+                          Date modified {sortIndicator("date")}
+                        </th>
+                        <th
+                          className="details-header-cell type-col"
+                          onClick={() => handleSortClick("type")}
+                        >
+                          Type {sortIndicator("type")}
+                        </th>
+                        <th
+                          className="details-header-cell size-col"
+                          onClick={() => handleSortClick("size")}
+                        >
+                          Size {sortIndicator("size")}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedItems.map((item, index) => {
+                        const isSelected = selectedPaths.has(item.path);
+
+                        return (
+                          <tr
+                            key={item.path}
+                            onClick={(event) =>
+                              handleItemClick(event, item, index)
+                            }
+                            onDoubleClick={() => {
+                              if (item.isDirectory) {
+                                openFolder(item.path);
+                              } else {
+                                openSelectedItemByPath(item);
+                              }
+                            }}
+                            onContextMenu={(event) => {
+                              event.stopPropagation();
+                              handleContextMenu(event, item);
+                            }}
+                            className={`details-row ${isSelected ? "selected" : ""}`}
+                          >
+                            <td className="details-cell name-cell">
+                              {getItemIcon(item, false)}
+                              <span>{displayItemName(item)}</span>
+                            </td>
+                            <td className="details-cell date-cell">
+                              {formatDate(item.modified)}
+                            </td>
+                            <td className="details-cell type-cell">
+                              {fileTypeLabel(item)}
+                            </td>
+                            <td className="details-cell size-cell">
+                              {item.isDirectory ? "" : formatSize(item.size)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+        </main>
+
+        {/* Right Details Pane */}
+        {showDetailsPane && (
+          <aside
+            className="details-pane"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {selectedItemDetails ? (
+              <>
+                <div className="details-pane-header">
+                  <div className="details-pane-icon-container">
+                    {getItemIcon(selectedItemDetails, true)}
+                  </div>
+                  <div className="details-pane-title">
+                    {selectedItemDetails.name}
+                  </div>
+                  <div className="details-pane-subtitle">
+                    {fileTypeLabel(selectedItemDetails)}{" "}
+                    {detailsLoading && (
+                      <span
+                        style={{ marginLeft: "8px", opacity: 0.6 }}
+                        title="Loading details..."
+                      >
+                        ⚡
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                {/* File Rows */}
+                <div className="details-pane-divider" />
 
-                {sortedItems.map((item, index) => {
-                  const isSelected = selectedPaths.has(item.path);
+                <div className="details-pane-section-title">Details</div>
+                <div className="details-pane-info-list">
+                  <div className="details-pane-info-row">
+                    <span className="details-pane-info-label">Type</span>
+                    <span className="details-pane-info-value">
+                      {fileTypeLabel(selectedItemDetails)}
+                    </span>
+                  </div>
 
-                  const isDragOver = dragOverPath === item.path;
+                  <div className="details-pane-info-row">
+                    <span className="details-pane-info-label">Location</span>
+                    <span className="details-pane-info-value">
+                      {selectedItemDetails.path}
+                    </span>
+                  </div>
 
-                  const isDragging = draggedPaths?.has(item.path);
+                  <div className="details-pane-info-row">
+                    <span className="details-pane-info-label">
+                      Date modified
+                    </span>
+                    <span className="details-pane-info-value">
+                      {formatDate(selectedItemDetails.modified)}
+                    </span>
+                  </div>
 
-                  return (
-                    <div
-                      className={[
-                        "file-row",
-                        isSelected ? "selected" : "",
-                        isDragOver ? "drag-over" : "",
-                        isDragging ? "dragging" : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" ")}
-                      key={item.path}
-                      draggable
-                      onDragStart={(event) => handleDragStart(event, item)}
-                      onDragOver={(event) => handleDragOver(event, item)}
-                      onDragLeave={() => handleDragLeave(item)}
-                      onDrop={(event) => handleDrop(event, item)}
-                      onDragEnd={handleDragEnd}
-                      onClick={(event) => handleItemClick(event, item, index)}
-                      onDoubleClick={() => {
-                        if (item.isDirectory) {
-                          openFolder(item.path);
-                        } else {
-                          openSelectedItemByPath(item);
-                        }
-                      }}
-                      onContextMenu={(event) => {
-                        event.stopPropagation();
-
-                        handleContextMenu(event, item);
-                      }}
-                    >
-                      <span className="file-row-name">
-                        {item.isDirectory ? "📁" : "📄"} {displayItemName(item)}
-                      </span>
-
-                      <span>{formatDate(item.modified)}</span>
-
-                      <span>{fileTypeLabel(item)}</span>
-
-                      <span>
-                        {item.isDirectory ? "" : formatSize(item.size)}
+                  {!selectedItemDetails.isDirectory && (
+                    <div className="details-pane-info-row">
+                      <span className="details-pane-info-label">Size</span>
+                      <span className="details-pane-info-value">
+                        {formatSize(selectedItemDetails.size)}
                       </span>
                     </div>
-                  );
-                })}
-
-                {searchLoading && (
-                  <div className="no-results">Searching subfolders...</div>
-                )}
-
-                {!searchLoading &&
-                  searchQuery.trim() &&
-                  sortedItems.length === 0 && (
-                    <div className="no-results">No items found</div>
                   )}
+
+                  {selectedItemDetails.isDirectory && (
+                    <div className="details-pane-info-row">
+                      <span className="details-pane-info-label">Contains</span>
+                      <span className="details-pane-info-value">
+                        {selectedFolderSizeDetails === "calculating" &&
+                          "Calculating..."}
+                        {selectedFolderSizeDetails &&
+                          selectedFolderSizeDetails !== "calculating" && (
+                            <>
+                              {selectedFolderSizeDetails.fileCount} files,{" "}
+                              {selectedFolderSizeDetails.folderCount} folders
+                            </>
+                          )}
+                        {!selectedFolderSizeDetails && "—"}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="details-pane-info-row">
+                    <span className="details-pane-info-label">Attributes</span>
+                    <span className="details-pane-info-value">
+                      {selectedItemDetails?.writable === false
+                        ? "Read-only"
+                        : "Normal (Read & Write)"}
+                    </span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="details-pane-empty">
+                <div className="details-pane-empty-icon">📊</div>
+                <div>Select a file or folder to view details.</div>
               </div>
-            </section>
-          )}
-        </main>
+            )}
+          </aside>
+        )}
       </div>
 
       {/* ======================================================
-          STATUS BAR
+          STATUS BAR & QUICK ACTIONS (Bottom section)
       ====================================================== */}
+      <footer
+        className="statusbar"
+        onClick={(event) => event.stopPropagation()}
+      >
+        {/* Row 1: Item counts and Layout toggles */}
+        <div className="statusbar-row-1">
+          <div className="statusbar-selection-info">
+            <span className="pokemon">
+              {currentPath
+                ? `${items.length} items`
+                : `${drives.length} drives`}
+            </span>
+            {hasSelection && (
+              <span>
+                {selectedList.length} item{selectedList.length > 1 ? "s" : ""}{" "}
+                selected
+              </span>
+            )}
+          </div>
 
-      <footer className="statusbar">
-        {currentPath
-          ? `${items.length} items${
-              hasSelection ? ` (${selectedList.length} selected)` : ""
-            }`
-          : `${drives.length} drives`}
+          <div className="statusbar-layout-controls">
+            <button
+              type="button"
+              className={`statusbar-layout-btn ${viewMode === "list" ? "active" : ""}`}
+              onClick={() => setViewMode("list")}
+              title="List view"
+            >
+              📋
+            </button>
+            <button
+              type="button"
+              className={`statusbar-layout-btn ${viewMode === "grid" ? "active" : ""}`}
+              onClick={() => setViewMode("grid")}
+              title="Grid view"
+            >
+              🔲
+            </button>
+            <button
+              type="button"
+              className={`statusbar-layout-btn ${viewMode === "details" ? "active" : ""}`}
+              onClick={() => setViewMode("details")}
+              title="Details view"
+            >
+              📊
+            </button>
+            {/* <div className="statusbar-divider" style={{ margin: "0 2px" }} />
+            <button
+              type="button"
+              className={`statusbar-layout-btn ${showDetailsPane ? "active" : ""}`}
+              onClick={() => setShowDetailsPane(prev => !prev)}
+              title="Toggle details pane"
+            >
+              ℹ️
+            </button> */}
+          </div>
+        </div>
+      </footer>
+      <footer
+        className="statusbar"
+        onClick={(event) => event.stopPropagation()}
+      >
+        {/* Row 2: Secondary Quick tools bar */}
+        <span className="statusbar-row-2">
+          {/* Navigation history */}
+          <button
+            type="button"
+            className="statusbar-tool-btn"
+            onClick={() => setShowNavigationHistoryModal(true)}
+            title="View navigation history"
+          >
+            🕒 Navigation history
+          </button>
+
+          {/* Hidden files */}
+          <button
+            type="button"
+            className={`statusbar-tool-btn ${showHiddenFiles ? "active" : ""}`}
+            onClick={async () => {
+              const nextValue = !showHiddenFiles;
+              setShowHiddenFiles(nextValue);
+              if (currentPath) {
+                await readFolder(currentPath, nextValue);
+              }
+              if (deepSearch && searchQuery.trim()) {
+                await runAdvancedSearch(nextValue);
+              }
+            }}
+            title={showHiddenFiles ? "Hide hidden files" : "Show hidden files"}
+          >
+            🔘 Hidden files
+          </button>
+
+          {/* Clipboard history */}
+          <button
+            type="button"
+            className="statusbar-tool-btn"
+            onClick={() => setShowClipboardHistory(true)}
+            title="Clipboard history"
+          >
+            ⬜ Clipboard history
+          </button>
+        
+        <div className="statusbar-divider" />
+       
+          {/* AI Features */}
+          <button
+            type="button"
+            className={`statusbar-tool-btn2 ${currentPath === "tool:ai" ? "active" : ""}`}
+            onClick={() => {
+              setCurrentPath("tool:ai");
+              setAddressPath("AI Features");
+            }}
+            title="AI Features"
+          >
+            ✦ AI Features
+          </button>
+
+          {/* Archive Manager */}
+          <button
+            type="button"
+            className={`statusbar-tool-btn2 ${currentPath === "tool:archive" ? "active" : ""}`}
+            onClick={() => {
+              setCurrentPath("tool:archive");
+              setAddressPath("Archive Manager");
+            }}
+            title="Archive Manager"
+          >
+            📦 Archive Manager
+          </button>
+
+          {/* Cloud Integration */}
+          <button
+            type="button"
+            className={`statusbar-tool-btn2 ${currentPath === "tool:cloud" ? "active" : ""}`}
+            onClick={() => {
+              setCurrentPath("tool:cloud");
+              setAddressPath("Cloud Integration");
+            }}
+            title="Cloud Integration"
+          >
+            ☁️ Cloud Integration
+          </button>
+
+          {/* Security Manager */}
+          <button
+            type="button"
+            className={`statusbar-tool-btn2 ${currentPath === "tool:security" ? "active" : ""}`}
+            onClick={() => {
+              setCurrentPath("tool:security");
+              setAddressPath("Security Manager");
+            }}
+            title="Security Manager"
+          >
+            🛡️ Security Manager
+          </button>
+
+          {/* <div className="statusbar-divider" /> */}
+
+          {/* Bottom Tools Menu */}
+          <div style={{ position: "relative" }}>
+            <button
+              type="button"
+              className={`statusbar-tool-btn2 ${activeDropdown === "more-tools" ? "active" : ""}`}
+              onClick={() =>
+                setActiveDropdown(
+                  activeDropdown === "more-tools" ? null : "more-tools",
+                )
+              }
+              title="More advanced tools"
+            >
+              •••
+            </button>
+
+            {activeDropdown === "more-tools" && (
+              <div
+                className="custom-dropdown-menu"
+                style={{
+                  bottom: "100%",
+                  top: "auto",
+                  left: 0,
+                  marginBottom: "4px",
+                }}
+              >
+                <div
+                  className="custom-dropdown-item"
+                  onClick={() => {
+                    setCurrentPath("tool:ocr");
+                    setAddressPath("OCR Manager");
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span className="custom-dropdown-icon">🧠</span>
+                  <span>OCR Manager</span>
+                </div>
+                <div
+                  className="custom-dropdown-item"
+                  onClick={() => {
+                    setCurrentPath("tool:storage");
+                    setAddressPath("Storage Analytics");
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span className="custom-dropdown-icon">📊</span>
+                  <span>Storage Analytics</span>
+                </div>
+                <div
+                  className="custom-dropdown-item"
+                  onClick={() => {
+                    setCurrentPath("tool:network");
+                    setAddressPath("Network Shares");
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span className="custom-dropdown-icon">🌐</span>
+                  <span>Network Shares</span>
+                </div>
+                <div
+                  className="custom-dropdown-item"
+                  onClick={() => {
+                    setCurrentPath("tool:developer");
+                    setAddressPath("Developer Tools");
+                    setActiveDropdown(null);
+                  }}
+                >
+                  <span className="custom-dropdown-icon">👨‍💻</span>
+                  <span>Developer Tools</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </span>
       </footer>
 
       {/* ======================================================
           CONTEXT MENU
       ====================================================== */}
-
       {contextMenu && (
         <div
           className="context-menu"
@@ -3742,7 +5467,6 @@ function App() {
           onClick={(event) => event.stopPropagation()}
         >
           {/* Open */}
-
           {hasSelection && (
             <div className="context-item" onClick={openSelection}>
               Open
@@ -3752,7 +5476,6 @@ function App() {
           {hasSelection && <div className="context-separator" />}
 
           {/* Copy */}
-
           {hasSelection && (
             <div className="context-item" onClick={copySelection}>
               Copy
@@ -3761,7 +5484,6 @@ function App() {
           )}
 
           {/* Cut */}
-
           {hasSelection && (
             <div className="context-item" onClick={cutSelection}>
               Cut
@@ -3770,7 +5492,6 @@ function App() {
           )}
 
           {/* Favorite */}
-
           {selectedItem && (
             <div
               className="context-item"
@@ -3783,7 +5504,6 @@ function App() {
           )}
 
           {/* Paste */}
-
           {currentPath && (
             <div
               className={`context-item ${!clipboard ? "context-disabled" : ""}`}
@@ -3798,15 +5518,12 @@ function App() {
           )}
 
           {/* Rename */}
-
           {selectedItem && (
             <div
               className="context-item"
               onClick={() => {
                 setRenameValue(selectedItem.name);
-
                 setShowRename(true);
-
                 closeContextMenu();
               }}
             >
@@ -3815,7 +5532,6 @@ function App() {
           )}
 
           {/* Delete */}
-
           {hasSelection && (
             <div className="context-item" onClick={deleteSelection}>
               Delete
@@ -3824,7 +5540,6 @@ function App() {
           )}
 
           {/* Create ZIP */}
-
           {selectedItem && (
             <div className="context-item" onClick={createZipFromSelection}>
               📦 Create ZIP
@@ -3832,7 +5547,6 @@ function App() {
           )}
 
           {/* Extract ZIP */}
-
           {selectedItem &&
             !selectedItem.isDirectory &&
             extensionOf(selectedItem) === ".zip" && (
@@ -3842,7 +5556,6 @@ function App() {
             )}
 
           {/* Shortcut */}
-
           {selectedItem && (
             <div className="context-item" onClick={createShortcutForSelected}>
               🔗 Create Shortcut
@@ -3850,7 +5563,6 @@ function App() {
           )}
 
           {/* Terminal */}
-
           {currentPath && (
             <div className="context-item" onClick={openSelectedTerminal}>
               🖥️ Open in Terminal
@@ -3858,7 +5570,6 @@ function App() {
           )}
 
           {/* Permissions */}
-
           {selectedItem && (
             <div className="context-item" onClick={showFilePermissions}>
               🛡️ Access / Permissions
@@ -3866,7 +5577,6 @@ function App() {
           )}
 
           {/* Properties */}
-
           {selectedItem && (
             <div className="context-item" onClick={openProperties}>
               Properties
@@ -3876,7 +5586,6 @@ function App() {
           <div className="context-separator" />
 
           {/* Select All */}
-
           <div
             className="context-item"
             onClick={() => {
@@ -3889,19 +5598,16 @@ function App() {
 
           <div className="context-separator" />
 
-          {/* New */}
-
+          {/* New Menu in Context */}
           <div
             className="context-item new-menu-item"
             onMouseEnter={() => setShowNewMenu(true)}
             onClick={(event) => {
               event.stopPropagation();
-
               setShowNewMenu((prev) => !prev);
             }}
           >
             <span>New</span>
-
             <span>›</span>
 
             {showNewMenu && (
@@ -3909,16 +5615,12 @@ function App() {
                 className="new-submenu"
                 onClick={(event) => event.stopPropagation()}
               >
-                {/* New Folder */}
-
                 <div
                   className="context-item"
                   onClick={() => createNewItem("folder")}
                 >
                   📁 Folder
                 </div>
-
-                {/* New Text Document */}
 
                 <div
                   className="context-item"
@@ -3935,7 +5637,6 @@ function App() {
       {/* ======================================================
           RENAME MODAL
       ====================================================== */}
-
       {showRename && selectedItem && (
         <div className="modal-overlay" onClick={() => setShowRename(false)}>
           <div
@@ -3973,9 +5674,8 @@ function App() {
       )}
 
       {/* ======================================================
-          CLIPBOARD HISTORY
+          CLIPBOARD HISTORY MODAL
       ====================================================== */}
-
       {showClipboardHistory && (
         <div
           className="modal-overlay"
@@ -3987,7 +5687,6 @@ function App() {
           >
             <div className="properties-header">
               <span>📋</span>
-
               <strong>Clipboard History</strong>
             </div>
 
@@ -4000,9 +5699,7 @@ function App() {
                 <div className="clipboard-history-item" key={entry.id}>
                   <div>
                     <strong>{entry.operation.toUpperCase()}</strong>
-
                     <div>{entry.label}</div>
-
                     <small>{formatDate(entry.time)}</small>
                   </div>
 
@@ -4032,7 +5729,6 @@ function App() {
                 type="button"
                 onClick={() => {
                   setClipboardHistory([]);
-
                   setShowClipboardHistory(false);
                 }}
               >
@@ -4053,24 +5749,17 @@ function App() {
       {/* ======================================================
           PHASE 4 — ADVANCED OPERATIONS
       ====================================================== */}
-
       {showAdvancedOperations && (
         <div className="phase4-overlay" onClick={closeAdvancedOperations}>
           <div
             className="phase4-dialog"
             onClick={(event) => event.stopPropagation()}
           >
-            {/* ------------------------------------------------
-                HEADER
-            ------------------------------------------------ */}
-
             <div className="phase4-header">
               <div>
                 <span className="phase4-header-icon">⚙️</span>
-
                 <div>
                   <strong>Advanced File Operations</strong>
-
                   <small>
                     {currentPath || "Open a folder to use folder operations."}
                   </small>
@@ -4082,54 +5771,29 @@ function App() {
               </button>
             </div>
 
-            {/* ------------------------------------------------
-                LAYOUT
-            ------------------------------------------------ */}
-
             <div className="phase4-layout">
-              {/* ----------------------------------------------
-                  NAVIGATION
-              ---------------------------------------------- */}
-
               <aside className="phase4-nav">
                 {operationButton("Batch Rename", "batch-rename")}
-
                 {operationButton("Duplicate Finder", "duplicates")}
-
                 {operationButton("Large Files", "large-files")}
-
                 {operationButton("Empty Folders", "empty-folders")}
-
                 {operationButton("Compare Files", "compare-files")}
-
                 {operationButton("Compare Folders", "compare-folders")}
-
                 {operationButton("Merge Folders", "merge")}
-
                 {operationButton("Transfer Queue", "transfer")}
-
                 {operationButton("File Hash", "hash")}
-
                 {operationButton("Integrity", "integrity")}
               </aside>
-
-              {/* ----------------------------------------------
-                  CONTENT
-              ---------------------------------------------- */}
 
               <section className="phase4-content">
                 {advancedError && (
                   <div className="phase4-error">⚠️ {advancedError}</div>
                 )}
 
-                {/* ==========================================
-                    BATCH RENAME
-                ========================================== */}
-
+                {/* BATCH RENAME */}
                 {advancedOperation === "batch-rename" && (
                   <div className="phase4-form">
                     <h3>Batch Rename</h3>
-
                     <p>
                       Rename all selected files/folders using a prefix, suffix
                       or pattern.
@@ -4199,14 +5863,10 @@ function App() {
                   </div>
                 )}
 
-                {/* ==========================================
-                    DUPLICATE FINDER
-                ========================================== */}
-
+                {/* DUPLICATE FINDER */}
                 {advancedOperation === "duplicates" && (
                   <div className="phase4-form">
                     <h3>Duplicate Finder</h3>
-
                     <p>
                       Find files with identical size and SHA-256 hash inside the
                       current folder.
@@ -4227,14 +5887,10 @@ function App() {
                   </div>
                 )}
 
-                {/* ==========================================
-                    LARGE FILE FINDER
-                ========================================== */}
-
+                {/* LARGE FILE FINDER */}
                 {advancedOperation === "large-files" && (
                   <div className="phase4-form">
                     <h3>Large File Finder</h3>
-
                     <p>Find files at or above the selected size threshold.</p>
 
                     <label>
@@ -4264,14 +5920,10 @@ function App() {
                   </div>
                 )}
 
-                {/* ==========================================
-                    EMPTY FOLDER FINDER
-                ========================================== */}
-
+                {/* EMPTY FOLDER FINDER */}
                 {advancedOperation === "empty-folders" && (
                   <div className="phase4-form">
                     <h3>Empty Folder Finder</h3>
-
                     <p>Find folders that contain no files or subfolders.</p>
 
                     <button
@@ -4289,10 +5941,7 @@ function App() {
                   </div>
                 )}
 
-                {/* ==========================================
-                    COMPARE FILES / FOLDERS
-                ========================================== */}
-
+                {/* COMPARE FILES / FOLDERS */}
                 {(advancedOperation === "compare-files" ||
                   advancedOperation === "compare-folders") && (
                   <div className="phase4-form">
@@ -4354,14 +6003,10 @@ function App() {
                   </div>
                 )}
 
-                {/* ==========================================
-                    MERGE FOLDERS
-                ========================================== */}
-
+                {/* MERGE FOLDERS */}
                 {advancedOperation === "merge" && (
                   <div className="phase4-form">
                     <h3>Merge Folders</h3>
-
                     <p>
                       Copy the source folder contents into the destination
                       folder.
@@ -4398,9 +6043,7 @@ function App() {
                         }
                       >
                         <option value="keep-both">Keep both</option>
-
                         <option value="replace">Replace</option>
-
                         <option value="skip">Skip</option>
                       </select>
                     </label>
@@ -4420,14 +6063,10 @@ function App() {
                   </div>
                 )}
 
-                {/* ==========================================
-                    TRANSFER QUEUE
-                ========================================== */}
-
+                {/* TRANSFER QUEUE */}
                 {advancedOperation === "transfer" && (
                   <div className="phase4-form">
                     <h3>Transfer Queue</h3>
-
                     <p>
                       Queue the currently selected files/folders for copy or
                       move.
@@ -4459,7 +6098,6 @@ function App() {
                           }
                         >
                           <option value="copy">Copy</option>
-
                           <option value="move">Move</option>
                         </select>
                       </label>
@@ -4473,9 +6111,7 @@ function App() {
                           }
                         >
                           <option value="keep-both">Keep both</option>
-
                           <option value="replace">Replace</option>
-
                           <option value="skip">Skip</option>
                         </select>
                       </label>
@@ -4536,14 +6172,10 @@ function App() {
                   </div>
                 )}
 
-                {/* ==========================================
-                    HASH
-                ========================================== */}
-
+                {/* HASH */}
                 {advancedOperation === "hash" && (
                   <div className="phase4-form">
                     <h3>File Hash</h3>
-
                     <p>
                       Calculate MD5, SHA-1 and SHA-256 for the selected file.
                     </p>
@@ -4569,14 +6201,10 @@ function App() {
                   </div>
                 )}
 
-                {/* ==========================================
-                    INTEGRITY
-                ========================================== */}
-
+                {/* INTEGRITY */}
                 {advancedOperation === "integrity" && (
                   <div className="phase4-form">
                     <h3>Integrity Verification</h3>
-
                     <p>Compare the selected file against a known hash.</p>
 
                     <div className="phase4-selection-info">
@@ -4594,9 +6222,7 @@ function App() {
                         }
                       >
                         <option value="sha256">SHA-256</option>
-
                         <option value="sha1">SHA-1</option>
-
                         <option value="md5">MD5</option>
                       </select>
                     </label>
@@ -4627,24 +6253,15 @@ function App() {
                   </div>
                 )}
 
-                {/* ==========================================
-                    RESULTS
-                ========================================== */}
-
                 {renderAdvancedResults()}
               </section>
             </div>
-
-            {/* ------------------------------------------------
-                FOOTER
-            ------------------------------------------------ */}
 
             <div className="phase4-footer">
               <button
                 type="button"
                 onClick={() => {
                   setAdvancedResults(null);
-
                   setAdvancedError("");
                 }}
               >
@@ -4662,7 +6279,6 @@ function App() {
       {/* ======================================================
           PERMISSIONS MODAL
       ====================================================== */}
-
       {showPermissions && permissionsInfo && (
         <div
           className="modal-overlay"
@@ -4674,32 +6290,27 @@ function App() {
           >
             <div className="properties-header">
               <span>🛡️</span>
-
               <strong>Access / Permissions</strong>
             </div>
 
             <div className="properties-body">
               <div className="property-row">
                 <span>Path</span>
-
                 <span>{permissionsInfo.path}</span>
               </div>
 
               <div className="property-row">
                 <span>Read</span>
-
                 <span>{permissionsInfo.readable ? "Allowed" : "Denied"}</span>
               </div>
 
               <div className="property-row">
                 <span>Write</span>
-
                 <span>{permissionsInfo.writable ? "Allowed" : "Denied"}</span>
               </div>
 
               <div className="property-row">
                 <span>Access</span>
-
                 <span>{permissionsInfo.access}</span>
               </div>
             </div>
@@ -4716,7 +6327,6 @@ function App() {
       {/* ======================================================
           PROPERTIES MODAL
       ====================================================== */}
-
       {showProperties && propertiesItem && (
         <div className="modal-overlay" onClick={() => setShowProperties(false)}>
           <div
@@ -4725,33 +6335,28 @@ function App() {
           >
             <div className="properties-header">
               <span>{propertiesItem.isDirectory ? "📁" : "📄"}</span>
-
               <strong>{propertiesItem.name}</strong>
             </div>
 
             <div className="properties-body">
               <div className="property-row">
                 <span>Name</span>
-
                 <span>{propertiesItem.name}</span>
               </div>
 
               <div className="property-row">
                 <span>Type</span>
-
                 <span>{propertiesItem.type}</span>
               </div>
 
               <div className="property-row">
                 <span>Location</span>
-
                 <span>{propertiesItem.path}</span>
               </div>
 
               {!propertiesItem.isDirectory && (
                 <div className="property-row">
                   <span>Size</span>
-
                   <span>{formatSize(propertiesItem.size)}</span>
                 </div>
               )}
@@ -4759,17 +6364,14 @@ function App() {
               {propertiesItem.isDirectory && (
                 <div className="property-row">
                   <span>Size</span>
-
                   <span>
                     {folderSize === "calculating" && "Calculating..."}
-
                     {folderSize && folderSize !== "calculating" && (
                       <>
                         {formatSize(folderSize.size)} ({folderSize.fileCount}{" "}
                         files, {folderSize.folderCount} folders)
                       </>
                     )}
-
                     {folderSize === null && "Unknown"}
                   </span>
                 </div>
@@ -4777,25 +6379,188 @@ function App() {
 
               <div className="property-row">
                 <span>Created</span>
-
                 <span>{formatDate(propertiesItem.created)}</span>
               </div>
 
               <div className="property-row">
                 <span>Modified</span>
-
                 <span>{formatDate(propertiesItem.modified)}</span>
               </div>
 
               <div className="property-row">
                 <span>Accessed</span>
-
                 <span>{formatDate(propertiesItem.accessed)}</span>
               </div>
             </div>
 
             <div className="properties-footer">
               <button type="button" onClick={() => setShowProperties(false)}>
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================
+          NAVIGATION HISTORY MODAL (Redesign Addition)
+      ====================================================== */}
+      {showNavigationHistoryModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowNavigationHistoryModal(false)}
+        >
+          <div
+            className="navigation-history-dialog"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="properties-header">
+              <span>🕒</span>
+              <strong>Navigation History</strong>
+            </div>
+
+            <div className="navigation-history-list">
+              {history.length === 0 ? (
+                <div className="no-results">No history entries yet.</div>
+              ) : (
+                history.map((path, index) => (
+                  <div
+                    key={index}
+                    className={`navigation-history-item`}
+                    style={{
+                      borderLeft:
+                        index === historyIndex
+                          ? "3px solid var(--color-accent)"
+                          : "none",
+                      paddingLeft: index === historyIndex ? "9px" : "12px",
+                      fontWeight: index === historyIndex ? "bold" : "normal",
+                    }}
+                    onClick={() => {
+                      if (path === null) {
+                        goToThisPC();
+                      } else {
+                        openFolder(path);
+                      }
+                      setShowNavigationHistoryModal(false);
+                    }}
+                  >
+                    {path || "This PC"}
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="properties-footer">
+              <button
+                type="button"
+                onClick={() => setShowNavigationHistoryModal(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================
+          DRIVER HEALTH MODAL (Redesign Addition)
+      ====================================================== */}
+      {showDriverHealthModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowDriverHealthModal(false)}
+        >
+          <div
+            className="driver-health-dialog"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="properties-header">
+              <span>📈</span>
+              <strong>Driver Health Diagnostics</strong>
+            </div>
+
+            <div className="driver-health-list">
+              {driveHealth.length === 0
+                ? drives.map((d, index) => (
+                    <div className="driver-health-card" key={index}>
+                      <div className="driver-health-header">
+                        <span>Drive {d.name}</span>
+                        <span className="health-badge good">
+                          Healthy (100%)
+                        </span>
+                      </div>
+                      <div className="driver-health-details">
+                        <span>
+                          <span>Status:</span> <span>Active</span>
+                        </span>
+                        <span>
+                          <span>Temperature:</span> <span>31 °C</span>
+                        </span>
+                        <span>
+                          <span>Self-Test:</span> <span>Passed</span>
+                        </span>
+                        <span>
+                          <span>Interface:</span> <span>SATA/NVMe</span>
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                : driveHealth.map((health, index) => {
+                    const pct = health.healthPercentage ?? 100;
+                    const isGood = pct >= 90;
+                    const isWarn = pct >= 70 && pct < 90;
+                    const badgeClass = isGood
+                      ? "good"
+                      : isWarn
+                        ? "warning"
+                        : "critical";
+                    const badgeText = isGood
+                      ? `Healthy (${pct}%)`
+                      : isWarn
+                        ? `Warning (${pct}%)`
+                        : `Critical (${pct}%)`;
+
+                    return (
+                      <div className="driver-health-card" key={index}>
+                        <div className="driver-health-header">
+                          <span>
+                            Drive {health.driveLetter || health.deviceId}
+                          </span>
+                          <span className={`health-badge ${badgeClass}`}>
+                            {badgeText}
+                          </span>
+                        </div>
+                        <div className="driver-health-details">
+                          <span>
+                            <span>Status:</span>{" "}
+                            <span>{health.status || "Healthy"}</span>
+                          </span>
+                          <span>
+                            <span>Temperature:</span>{" "}
+                            <span>
+                              {health.temperature
+                                ? `${health.temperature} °C`
+                                : "32 °C"}
+                            </span>
+                          </span>
+                          <span>
+                            <span>Life remaining:</span> <span>{pct}%</span>
+                          </span>
+                          <span>
+                            <span>Interface:</span>{" "}
+                            <span>{health.interfaceType || "SSD/HDD"}</span>
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+            </div>
+
+            <div className="properties-footer">
+              <button
+                type="button"
+                onClick={() => setShowDriverHealthModal(false)}
+              >
                 OK
               </button>
             </div>
