@@ -369,7 +369,7 @@ function App() {
 
   const [drives, setDrives] = useState([]);
   const [items, setItems] = useState([]);
-  const [currentPath, setCurrentPath] = useState(null);
+  const [currentPath, setCurrentPath] = useState("Home");
   const [recycleBinItems, setRecycleBinItems] = useState([
     {
       name: "old_backup_2025.zip",
@@ -390,7 +390,7 @@ function App() {
       originalSize: 1250230,
     },
   ]);
-  const [addressPath, setAddressPath] = useState("This PC");
+  const [addressPath, setAddressPath] = useState("Home");
   const [systemPaths, setSystemPaths] = useState(null);
 
   // =============================
@@ -510,8 +510,8 @@ function App() {
   const [tabs, setTabs] = useState(() => [
     {
       id: Date.now(),
-      path: null,
-      label: "This PC",
+      path: "Home",
+      label: "Home",
     },
   ]);
 
@@ -1305,17 +1305,38 @@ function App() {
 
     const initialPath = rawHash ? decodeURIComponent(rawHash) : "";
 
-    const firstTab = {
-      id: Date.now(),
-      path: initialPath || null,
-      label: initialPath || "This PC",
-    };
+    if (initialPath && initialPath !== "Home") {
+      const firstTab = {
+        id: Date.now(),
+        path: initialPath,
+        label: pathLabel(initialPath),
+      };
 
-    setTabs([firstTab]);
-    setActiveTabId(firstTab.id);
+      setTabs([firstTab]);
+      setActiveTabId(firstTab.id);
 
-    if (initialPath) {
-      readFolder(initialPath);
+      if (initialPath === "This PC") {
+        goToThisPC();
+      } else if (initialPath === "RecycleBin") {
+        setCurrentPath("RecycleBin");
+        setAddressPath("Recycle Bin");
+      } else if (initialPath.startsWith("tool:")) {
+        setCurrentPath(initialPath);
+        setAddressPath(initialPath);
+      } else {
+        readFolder(initialPath);
+      }
+    } else {
+      const firstTab = {
+        id: Date.now(),
+        path: "Home",
+        label: "Home",
+      };
+
+      setTabs([firstTab]);
+      setActiveTabId(firstTab.id);
+      setCurrentPath("Home");
+      setAddressPath("Home");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1530,6 +1551,15 @@ function App() {
       return;
     }
 
+    if (cleanPath === "Home") {
+      goToHome();
+      const newHistory = history.slice(0, historyIndex + 1);
+      newHistory.push("Home");
+      setHistory(newHistory);
+      setHistoryIndex(newHistory.length - 1);
+      return;
+    }
+
     const success = await readFolder(cleanPath);
 
     if (!success) {
@@ -1557,13 +1587,19 @@ function App() {
     }
 
     const newIndex = historyIndex - 1;
-
     const previousPath = history[newIndex];
 
-    const success = await readFolder(previousPath);
-
-    if (success) {
+    if (previousPath === "Home") {
+      goToHome();
       setHistoryIndex(newIndex);
+    } else if (!previousPath || previousPath === "This PC") {
+      goToThisPC();
+      setHistoryIndex(newIndex);
+    } else {
+      const success = await readFolder(previousPath);
+      if (success) {
+        setHistoryIndex(newIndex);
+      }
     }
   }
 
@@ -1577,13 +1613,19 @@ function App() {
     }
 
     const newIndex = historyIndex + 1;
-
     const nextPath = history[newIndex];
 
-    const success = await readFolder(nextPath);
-
-    if (success) {
+    if (nextPath === "Home") {
+      goToHome();
       setHistoryIndex(newIndex);
+    } else if (!nextPath || nextPath === "This PC") {
+      goToThisPC();
+      setHistoryIndex(newIndex);
+    } else {
+      const success = await readFolder(nextPath);
+      if (success) {
+        setHistoryIndex(newIndex);
+      }
     }
   }
 
@@ -1629,12 +1671,42 @@ function App() {
       return;
     }
 
+    if (currentPath === "Home") {
+      await loadDrives();
+      await loadDriveInventory();
+      return;
+    }
+
     await readFolder(currentPath, showHiddenFiles);
   }
 
   // ============================================================
-  // This PC
+  // Home & This PC Navigation
   // ============================================================
+
+  function goToHome() {
+    setCurrentPath("Home");
+    setAddressPath("Home");
+    setItems([]);
+    setSearchResults([]);
+
+    setTabs((prev) =>
+      prev.map((tab) =>
+        tab.id === activeTabId
+          ? {
+              ...tab,
+              path: "Home",
+              label: "Home",
+            }
+          : tab,
+      ),
+    );
+
+    setSelectedPaths(new Set());
+    setLastSelectedIndex(null);
+    setError("");
+    closeContextMenu();
+  }
 
   function goToThisPC() {
     setCurrentPath(null);
@@ -1663,8 +1735,10 @@ function App() {
 
   async function closeToolView() {
     const lastPath = historyIndex >= 0 ? history[historyIndex] : null;
-    if (lastPath && lastPath !== "This PC") {
+    if (lastPath && lastPath !== "This PC" && lastPath !== "Home") {
       await readFolder(lastPath);
+    } else if (lastPath === "Home") {
+      goToHome();
     } else {
       goToThisPC();
     }
@@ -1684,6 +1758,11 @@ function App() {
       return;
     }
 
+    if (path === "Home" || path.toLowerCase() === "home") {
+      goToHome();
+      return;
+    }
+
     await openFolder(path);
   }
 
@@ -1692,8 +1771,16 @@ function App() {
   // ============================================================
 
   function pathLabel(filePath) {
-    if (!filePath) {
+    if (!filePath || filePath === "This PC") {
       return "This PC";
+    }
+
+    if (filePath === "Home") {
+      return "Home";
+    }
+
+    if (filePath === "RecycleBin") {
+      return "Recycle Bin";
     }
 
     const clean = filePath.replace(/[\\/]+$/, "");
@@ -1912,28 +1999,39 @@ function App() {
   // New Tab
   // ============================================================
 
-  function newTab(initialPath = null) {
+  function newTab(initialPath = "Home") {
     const tab = {
       id: Date.now() + Math.random(),
 
       path: initialPath,
 
-      label: initialPath ? pathLabel(initialPath) : "This PC",
+      label: initialPath ? pathLabel(initialPath) : "Home",
     };
 
     setTabs((prev) => [...prev, tab]);
 
     setActiveTabId(tab.id);
 
-    setCurrentPath(null);
-    setAddressPath("This PC");
-    setItems([]);
-    setSelectedPaths(new Set());
-    setLastSelectedIndex(null);
-    setSearchResults([]);
-    setError("");
-
-    if (initialPath) {
+    if (initialPath === "Home") {
+      goToHome();
+    } else if (!initialPath || initialPath === "This PC") {
+      goToThisPC();
+    } else if (initialPath.startsWith("tool:")) {
+      setCurrentPath(initialPath);
+      setAddressPath(initialPath);
+      setItems([]);
+      setSelectedPaths(new Set());
+      setLastSelectedIndex(null);
+      setSearchResults([]);
+      setError("");
+    } else {
+      setCurrentPath(null);
+      setAddressPath(initialPath);
+      setItems([]);
+      setSelectedPaths(new Set());
+      setLastSelectedIndex(null);
+      setSearchResults([]);
+      setError("");
       readFolderForTab(initialPath, tab.id);
     }
   }
@@ -1992,9 +2090,30 @@ function App() {
     setSelectedPaths(new Set());
     setLastSelectedIndex(null);
 
-    if (!tab.path) {
+    if (!tab.path || tab.path === "This PC") {
       setCurrentPath(null);
       setAddressPath("This PC");
+      setItems([]);
+      return;
+    }
+
+    if (tab.path === "Home") {
+      setCurrentPath("Home");
+      setAddressPath("Home");
+      setItems([]);
+      return;
+    }
+
+    if (tab.path === "RecycleBin") {
+      setCurrentPath("RecycleBin");
+      setAddressPath("Recycle Bin");
+      setItems([]);
+      return;
+    }
+
+    if (tab.path.startsWith("tool:")) {
+      setCurrentPath(tab.path);
+      setAddressPath(tab.label || tab.path);
       setItems([]);
       return;
     }
@@ -2023,7 +2142,21 @@ function App() {
       setActiveTabId(next.id);
 
       if (next.path) {
-        readFolderForTab(next.path, next.id);
+        if (next.path === "Home") {
+          setCurrentPath("Home");
+          setAddressPath("Home");
+          setItems([]);
+        } else if (next.path === "RecycleBin") {
+          setCurrentPath("RecycleBin");
+          setAddressPath("Recycle Bin");
+          setItems([]);
+        } else if (next.path.startsWith("tool:")) {
+          setCurrentPath(next.path);
+          setAddressPath(next.label || next.path);
+          setItems([]);
+        } else {
+          readFolderForTab(next.path, next.id);
+        }
       } else {
         setCurrentPath(null);
         setAddressPath("This PC");
@@ -4626,16 +4759,14 @@ function App() {
             className={`sidebar-item ${currentPath === "Home" ? "active" : ""} ${selectedSidebarPath === "Home" ? "selected" : ""}`}
             onClick={() => {
               if (clickBehavior === "single") {
-                setCurrentPath("Home");
-                setAddressPath("Home");
+                goToHome();
               } else {
                 setSelectedSidebarPath("Home");
               }
             }}
             onDoubleClick={() => {
               if (clickBehavior === "double") {
-                setCurrentPath("Home");
-                setAddressPath("Home");
+                goToHome();
               }
             }}
           >
