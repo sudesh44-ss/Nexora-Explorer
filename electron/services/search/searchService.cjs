@@ -460,6 +460,8 @@ async function runSearch(scopesList, queryStr, filterType = "all", showHidden = 
 
   let scannedItemsCount = 0;
   let skippedFoldersCount = 0;
+  let scannedFoldersCount = 0;
+  let scannedFilesCount = 0;
 
   while (pending.length && results.length < MAX_SEARCH_RESULTS) {
     if (searchCancelled) {
@@ -471,6 +473,7 @@ async function runSearch(scopesList, queryStr, filterType = "all", showHidden = 
     let entries;
     try {
       entries = await fsp.readdir(current, { withFileTypes: true });
+      scannedFoldersCount++;
     } catch (e) {
       skippedFoldersCount++;
       continue;
@@ -480,20 +483,26 @@ async function runSearch(scopesList, queryStr, filterType = "all", showHidden = 
       if (searchCancelled) break;
       scannedItemsCount++;
 
+      const isDirectory = entry.isDirectory();
+      if (!isDirectory) {
+        scannedFilesCount++;
+      }
+
       // Throttle progress updates to 100 scanned items and yield
       if (scannedItemsCount % 100 === 0) {
         if (eventSender) {
           eventSender.send("search:progress", {
-            scanned: scannedItemsCount,
+            scannedFolders: scannedFoldersCount,
+            scannedFiles: scannedFilesCount,
             resultsCount: results.length,
-            currentPath: current
+            currentPath: current,
+            pendingLength: pending.length
           });
         }
         await new Promise(resolve => setImmediate(resolve));
       }
 
       const fullPath = path.join(current, entry.name);
-      const isDirectory = entry.isDirectory();
 
       // Check Hidden (No expensiveattrib command per item!)
       const isHidden = entry.name.startsWith(".") || entry.name.startsWith("$");

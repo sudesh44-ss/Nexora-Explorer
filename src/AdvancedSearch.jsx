@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 
 import "./AdvancedSearch.css";
+import SearchProgress from "./SearchProgress";
 
 const isPhysical = (p) => {
   return p && !p.startsWith("tool:") && !p.startsWith("favorites:") && !p.startsWith("drives:");
@@ -26,7 +27,11 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [statusText, setStatusText] = useState("");
+  const [progressData, setProgressData] = useState(null);
+  const [isCancelled, setIsCancelled] = useState(false);
+  const [isComplete, setIsComplete] = useState(false);
+  const [finalStats, setFinalStats] = useState(null);
+  const startTimeRef = useRef(null);
 
   if (currentPath !== prevPath) {
     setPrevPath(currentPath);
@@ -110,15 +115,6 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
   useEffect(() => {
     loadHistory();
     loadSavedSearches();
-
-    // Progress listener
-    const unsubProgress = window.electronFeatures.onSearchProgress((data) => {
-      setStatusText(`Scanned: ${data.scanned} folders... Found: ${data.resultsCount} items.`);
-    });
-
-    return () => {
-      unsubProgress();
-    };
   }, []);
 
   const handleChooseFolder = async () => {
@@ -149,13 +145,28 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
     }
     setLoading(true);
     setError("");
-    setStatusText("Initializing search...");
+    setIsCancelled(false);
+    setIsComplete(false);
+    setProgressData(null);
+    setFinalStats(null);
+    startTimeRef.current = Date.now();
+
+    let foldersCount = 0;
+    let filesCount = 0;
+
+    const unsubscribeProgress = window.electronFeatures.onSearchProgress((data) => {
+      setProgressData(data);
+      foldersCount = data.scannedFolders || 0;
+      filesCount = data.scannedFiles || 0;
+    });
+
     try {
       let scopePath = null;
       if (searchScope === "Selected Folder") {
         if (!selectedFolderPath) {
           setError("Please choose a folder to search.");
           setLoading(false);
+          unsubscribeProgress();
           return;
         }
         scopePath = selectedFolderPath;
@@ -167,6 +178,7 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
         } else {
           setError("Cannot search from a virtual/tool view. Please select a physical folder to search.");
           setLoading(false);
+          unsubscribeProgress();
           return;
         }
       } else if (searchScope === "Entire Drive") {
@@ -177,6 +189,7 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
         } else {
           setError("Please select a physical folder to determine the drive root.");
           setLoading(false);
+          unsubscribeProgress();
           return;
         }
       } else if (searchScope === "Multiple Drives") {
@@ -224,6 +237,8 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
         options
       );
 
+      unsubscribeProgress();
+
       trace("[AdvancedSearch] SEARCH RESPONSE", {
         isArray: Array.isArray(res),
         length: Array.isArray(res) ? res.length : null,
@@ -235,6 +250,13 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
         setResults([]);
       } else {
         setResults(res || []);
+        setIsComplete(true);
+        setFinalStats({
+          scannedFolders: foldersCount,
+          scannedFiles: filesCount,
+          resultsCount: res ? res.length : 0,
+          elapsedSeconds: Math.round((Date.now() - startTimeRef.current) / 1000)
+        });
         
         // Add to history list
         await window.electronFeatures.addToSearchHistory({
@@ -246,10 +268,11 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
         loadHistory();
       }
     } catch (err) {
+      unsubscribeProgress();
       setError(err.message || "Search failed");
+      setResults([]);
     } finally {
       setLoading(false);
-      setStatusText("");
     }
   };
 
@@ -296,10 +319,31 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
     updateFilter("dateValue", dateStr);
   };
 
+  const handleCancel = async () => {
+    try {
+      await window.electronFeatures.cancelSearch();
+      setIsCancelled(true);
+      setLoading(false);
+      const elapsed = startTimeRef.current ? Math.round((Date.now() - startTimeRef.current) / 1000) : 0;
+      setFinalStats({
+        scannedFolders: progressData?.scannedFolders || 0,
+        scannedFiles: progressData?.scannedFiles || 0,
+        resultsCount: results.length,
+        elapsedSeconds: elapsed
+      });
+    } catch (e) {
+      setError(`Cancel failed: ${e.message}`);
+    }
+  };
+
   const clearSearch = () => {
     setSearchText("");
     setResults([]);
     setError("");
+    setProgressData(null);
+    setIsCancelled(false);
+    setIsComplete(false);
+    setFinalStats(null);
 
     setFilters({
       name: "",
@@ -740,36 +784,14 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
             </div>
           </div>
 
-          {loading && (
-            <div
-              className="search-loading-state"
-              style={{ padding: "40px", textAlign: "center", color: "#666" }}
-            >
-              <div
-                className="spinner"
-                style={{
-                  margin: "0 auto 15px",
-                  width: "30px",
-                  height: "30px",
-                  border: "3px solid #ccc",
-                  borderTopColor: "#0078d4",
-                  borderRadius: "50%",
-                  animation: "spin 1s linear infinite",
-                }}
-              ></div>
-              <div style={{ marginBottom: "10px" }}>{statusText || "Searching the filesystem..."}</div>
-              <button 
-                onClick={() => {
-                  window.electronFeatures.cancelSearch();
-                  setLoading(false);
-                  setStatusText("Cancelled.");
-                }} 
-                style={{ padding: "5px 15px", cursor: "pointer", backgroundColor: "#ff4343", color: "#fff", border: "none", borderRadius: "3px" }}
-              >
-                Cancel Search
-              </button>
-            </div>
-          )}
+          <SearchProgress
+            isSearching={loading}
+            progressData={progressData}
+            isComplete={isComplete}
+            isCancelled={isCancelled}
+            onCancel={handleCancel}
+            finalStats={finalStats}
+          />
 
           {error && (
             <div

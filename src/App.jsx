@@ -108,6 +108,7 @@ function getItemIcon(item, isGrid = false) {
 
 // Import Advanced Tools
 import AdvancedSearch from "./AdvancedSearch";
+import SearchProgress from "./SearchProgress";
 import ArchiveManager from "./ArchiveManager";
 import SecurityManager from "./SecurityManager";
 import FilePreview from "./FilePreview";
@@ -295,12 +296,22 @@ function App() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [prevSearchQuery, setPrevSearchQuery] = useState("");
   const [prevDeepSearch, setPrevDeepSearch] = useState(false);
+  
+  const [searchProgressData, setSearchProgressData] = useState(null);
+  const [searchCancelled, setSearchCancelled] = useState(false);
+  const [searchComplete, setSearchComplete] = useState(false);
+  const [searchFinalStats, setSearchFinalStats] = useState(null);
+  const searchStartTimeRef = useRef(null);
 
   if (searchQuery !== prevSearchQuery || deepSearch !== prevDeepSearch) {
     setPrevSearchQuery(searchQuery);
     setPrevDeepSearch(deepSearch);
     if (!deepSearch || !searchQuery.trim()) {
       setSearchResults([]);
+      setSearchProgressData(null);
+      setSearchCancelled(false);
+      setSearchComplete(false);
+      setSearchFinalStats(null);
     }
   }
 
@@ -1468,6 +1479,23 @@ function App() {
   // Advanced Search
   // ============================================================
 
+  async function handleSearchCancel() {
+    try {
+      await window.electronFeatures.cancelSearch();
+      setSearchCancelled(true);
+      setSearchLoading(false);
+      const elapsed = searchStartTimeRef.current ? Math.round((Date.now() - searchStartTimeRef.current) / 1000) : 0;
+      setSearchFinalStats({
+        scannedFolders: searchProgressData?.scannedFolders || 0,
+        scannedFiles: searchProgressData?.scannedFiles || 0,
+        resultsCount: searchResults.length,
+        elapsedSeconds: elapsed
+      });
+    } catch (e) {
+      setError(`Cancel failed: ${e.message}`);
+    }
+  }
+
   async function runAdvancedSearch(showHiddenOverride = showHiddenFiles) {
     if (!currentPath || !searchQuery.trim()) {
       return;
@@ -1475,6 +1503,20 @@ function App() {
 
     setSearchLoading(true);
     setError("");
+    setSearchCancelled(false);
+    setSearchComplete(false);
+    setSearchProgressData(null);
+    setSearchFinalStats(null);
+    searchStartTimeRef.current = Date.now();
+
+    let foldersCount = 0;
+    let filesCount = 0;
+
+    const unsubscribeProgress = window.electronFeatures.onSearchProgress((data) => {
+      setSearchProgressData(data);
+      foldersCount = data.scannedFolders || 0;
+      filesCount = data.scannedFiles || 0;
+    });
 
     try {
       await window.electronFeatures.cancelSearch();
@@ -1486,16 +1528,25 @@ function App() {
         { searchScope: "Subfolders" }
       );
 
+      unsubscribeProgress();
+
       if (result?.error) {
         setError(result.error);
         setSearchResults([]);
-        return;
+      } else {
+        const matchesCount = Array.isArray(result) ? result.length : 0;
+        setSearchResults(Array.isArray(result) ? result : []);
+        setSearchComplete(true);
+        setSearchFinalStats({
+          scannedFolders: foldersCount,
+          scannedFiles: filesCount,
+          resultsCount: matchesCount,
+          elapsedSeconds: Math.round((Date.now() - searchStartTimeRef.current) / 1000)
+        });
       }
-
-      setSearchResults(Array.isArray(result) ? result : []);
     } catch (error) {
+      unsubscribeProgress();
       setError(error.message || "Search failed.");
-
       setSearchResults([]);
     } finally {
       setSearchLoading(false);
@@ -4987,6 +5038,18 @@ function App() {
             </section>
           )}
 
+          {/* Unified Search Progress for Normal Search */}
+          {currentPath && !currentPath.startsWith("tool:") && deepSearch && searchQuery.trim() && (
+            <SearchProgress
+              isSearching={searchLoading}
+              progressData={searchProgressData}
+              isComplete={searchComplete}
+              isCancelled={searchCancelled}
+              onCancel={handleSearchCancel}
+              finalStats={searchFinalStats}
+            />
+          )}
+
           {/* ==================================================
               FILES & FOLDERS — GRID VIEW
           ================================================== */}
@@ -5043,9 +5106,7 @@ function App() {
                     );
                   })}
 
-                  {searchLoading && (
-                    <div className="no-results">Searching subfolders...</div>
-                  )}
+
 
                   {!searchLoading &&
                     searchQuery.trim() &&
@@ -5138,9 +5199,7 @@ function App() {
                     );
                   })}
 
-                  {searchLoading && (
-                    <div className="no-results">Searching subfolders...</div>
-                  )}
+
 
                   {!searchLoading &&
                     searchQuery.trim() &&
