@@ -8,22 +8,45 @@ const path = require("path");
 
 class OneDriveAdapter {
   constructor() {
-    this.clientId = secureCredentials.getCredential("ONEDRIVE_CLIENT_ID") || "dummy_onedrive_client_id";
-    this.clientSecret = secureCredentials.getCredential("ONEDRIVE_CLIENT_SECRET") || "dummy_onedrive_secret";
     this.redirectUri = "http://localhost:8524/callback";
     this.server = null;
   }
 
+  get clientId() {
+    return secureCredentials.getCredential("ONEDRIVE_CLIENT_ID") || "dummy_onedrive_client_id";
+  }
+
+  get clientSecret() {
+    return secureCredentials.getCredential("ONEDRIVE_CLIENT_SECRET") || "dummy_onedrive_secret";
+  }
+
+  cleanupServer(timeoutId) {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    if (this.server) {
+      try {
+        this.server.close();
+      } catch (e) {
+        console.error("[OneDrive OAuth] Error closing server:", e);
+      }
+      this.server = null;
+    }
+  }
+
   async connect(onTokenCallback) {
+    console.log("[OneDrive OAuth] Starting authentication");
     return new Promise((resolve, reject) => {
-      const existingToken = secureCredentials.getCredential("ONEDRIVE_REFRESH_TOKEN");
-      if (existingToken) {
-        return resolve({ success: true, message: "Already connected via refresh token" });
+      if (this.server) {
+        return reject(new Error("OneDrive authentication is already in progress."));
       }
 
-      if (this.server) {
-        this.server.close();
-      }
+      // Set a 60-second connection timeout
+      const timeoutId = setTimeout(() => {
+        this.cleanupServer();
+        console.log("[OneDrive OAuth] OneDrive authentication timed out.");
+        reject(new Error("OneDrive authentication timed out."));
+      }, 60000);
 
       this.server = http.createServer(async (req, res) => {
         if (req.url.startsWith("/callback")) {
@@ -33,6 +56,7 @@ class OneDriveAdapter {
           if (code) {
             res.writeHead(200, { "Content-Type": "text/html" });
             res.end("<h3>OneDrive authentication successful! You can close this window.</h3>");
+            console.log("[OneDrive OAuth] Callback received");
             
             try {
               const tokenRes = await this.exchangeCodeForTokens(code);
@@ -44,27 +68,41 @@ class OneDriveAdapter {
                 secureCredentials.setCredential("ONEDRIVE_ACCESS_TOKEN_EXPIRY", String(Date.now() + tokenRes.expires_in * 1000));
               }
               
+              this.cleanupServer(timeoutId);
+              console.log("[OneDrive OAuth] Authentication completed");
               if (onTokenCallback) onTokenCallback();
               resolve({ success: true });
             } catch (e) {
+              this.cleanupServer(timeoutId);
               reject(e);
-            } finally {
-              if (this.server) {
-                this.server.close();
-                this.server = null;
-              }
             }
           } else {
             res.writeHead(400, { "Content-Type": "text/html" });
             res.end("<h3>OneDrive Auth failed: Code not found.</h3>");
+            this.cleanupServer(timeoutId);
             reject(new Error("No authorization code returned."));
           }
         }
       });
 
-      this.server.listen(8524, () => {
+      this.server.on("error", (err) => {
+        console.log("[OneDrive OAuth] Callback server failed to start");
+        console.log("[OneDrive OAuth] Error:", err.code || err.message);
+        this.cleanupServer(timeoutId);
+        if (err.code === "EADDRINUSE") {
+          reject(new Error("OneDrive OAuth callback port 8524 is already in use."));
+        } else {
+          reject(err);
+        }
+      });
+
+      console.log("[OneDrive OAuth] Starting callback server on port 8524");
+      this.server.listen(8524, "127.0.0.1", () => {
+        console.log("[OneDrive OAuth] Callback server listening");
         const authUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${this.clientId}&scope=files.readwrite%20offline_access&response_type=code&redirect_uri=${encodeURIComponent(this.redirectUri)}`;
+        console.log("[OneDrive OAuth] Browser opened");
         shell.openExternal(authUrl).catch(err => {
+          this.cleanupServer(timeoutId);
           // If browser shell fails, fall back to sandbox credentials
           secureCredentials.setCredential("ONEDRIVE_REFRESH_TOKEN", "sandbox_onedrive_refresh_token");
           secureCredentials.setCredential("ONEDRIVE_ACCESS_TOKEN", "sandbox_onedrive_access_token");

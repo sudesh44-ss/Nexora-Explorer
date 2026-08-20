@@ -8,22 +8,43 @@ const path = require("path");
 
 class DropboxAdapter {
   constructor() {
-    this.clientId = secureCredentials.getCredential("DROPBOX_CLIENT_ID") || "dummy_dropbox_client_id";
-    this.clientSecret = secureCredentials.getCredential("DROPBOX_CLIENT_SECRET") || "dummy_dropbox_secret";
     this.redirectUri = "http://localhost:8524/callback";
     this.server = null;
   }
 
+  get clientId() {
+    return secureCredentials.getCredential("DROPBOX_CLIENT_ID") || "dummy_dropbox_client_id";
+  }
+
+  get clientSecret() {
+    return secureCredentials.getCredential("DROPBOX_CLIENT_SECRET") || "dummy_dropbox_secret";
+  }
+
+  cleanupServer(timeoutId) {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    if (this.server) {
+      try {
+        this.server.close();
+      } catch (e) {
+        console.error("[Dropbox OAuth] Error closing server:", e);
+      }
+      this.server = null;
+    }
+  }
+
   async connect(onTokenCallback) {
     return new Promise((resolve, reject) => {
-      const existingToken = secureCredentials.getCredential("DROPBOX_REFRESH_TOKEN");
-      if (existingToken) {
-        return resolve({ success: true, message: "Already connected via refresh token" });
+      if (this.server) {
+        return reject(new Error("Dropbox authentication is already in progress."));
       }
 
-      if (this.server) {
-        this.server.close();
-      }
+      // Set a 60-second connection timeout
+      const timeoutId = setTimeout(() => {
+        this.cleanupServer();
+        reject(new Error("Dropbox OAuth authentication timed out. Please try again."));
+      }, 60000);
 
       this.server = http.createServer(async (req, res) => {
         if (req.url.startsWith("/callback")) {
@@ -44,27 +65,37 @@ class DropboxAdapter {
                 secureCredentials.setCredential("DROPBOX_ACCESS_TOKEN_EXPIRY", String(Date.now() + tokenRes.expires_in * 1000));
               }
               
+              this.cleanupServer(timeoutId);
               if (onTokenCallback) onTokenCallback();
               resolve({ success: true });
             } catch (e) {
+              this.cleanupServer(timeoutId);
               reject(e);
-            } finally {
-              if (this.server) {
-                this.server.close();
-                this.server = null;
-              }
             }
           } else {
             res.writeHead(400, { "Content-Type": "text/html" });
             res.end("<h3>Dropbox Auth failed: Code not found.</h3>");
+            this.cleanupServer(timeoutId);
             reject(new Error("No authorization code returned."));
           }
         }
       });
 
-      this.server.listen(8524, () => {
+      this.server.on("error", (err) => {
+        console.log("[Dropbox OAuth] Callback server failed to start");
+        console.log("[Dropbox OAuth] Error:", err.code || err.message);
+        this.cleanupServer(timeoutId);
+        if (err.code === "EADDRINUSE") {
+          reject(new Error("Dropbox OAuth callback port 8524 is already in use."));
+        } else {
+          reject(err);
+        }
+      });
+
+      this.server.listen(8524, "127.0.0.1", () => {
         const authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${this.clientId}&redirect_uri=${encodeURIComponent(this.redirectUri)}&response_type=code&token_access_type=offline`;
         shell.openExternal(authUrl).catch(err => {
+          this.cleanupServer(timeoutId);
           // Fallback to sandbox if external browser shell fails
           secureCredentials.setCredential("DROPBOX_REFRESH_TOKEN", "sandbox_dropbox_refresh_token");
           secureCredentials.setCredential("DROPBOX_ACCESS_TOKEN", "sandbox_dropbox_access_token");

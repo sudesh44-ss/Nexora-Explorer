@@ -437,6 +437,10 @@ const featureAPI = {
     return invoke("ocr:start-file", filePath, options);
   },
 
+  ocrCancel: (jobId) => {
+    return invoke("ocr:cancel", jobId);
+  },
+
   ocrAddQueue: (filePaths, options) => {
     return invoke("ocr:add-queue", filePaths, options);
   },

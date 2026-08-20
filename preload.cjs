@@ -133,21 +133,27 @@ getRegisteredApplications: (extension) =>
   // Search & Archive
   // ============================================================
 
-  ssearchDirectory: (
-  rootPath,
-  query,
-  filterType,
-  showHidden = false,
-  options = {}
-) =>
-  ipcRenderer.invoke(
-    "search-directory",
+  searchDirectory: (
     rootPath,
     query,
     filterType,
-    Boolean(showHidden),
-    options
-  ),
+    showHidden = false,
+    options = {}
+  ) => {
+    ipcRenderer.invoke("debug-log", {
+      source: "Preload",
+      message: "[Preload] searchDirectory",
+      data: { rootPath, query, filterType, showHidden, options }
+    }).catch(() => {});
+    return ipcRenderer.invoke(
+      "search-directory",
+      rootPath,
+      query,
+      filterType,
+      Boolean(showHidden),
+      options
+    );
+  },
 
   createZip: (sourcePath, destinationZip) =>
     ipcRenderer.invoke(
@@ -405,18 +411,12 @@ getHiddenStatuses: (paths) =>
   chooseFolder: () =>
     ipcRenderer.invoke("choose-folder"),
 
+  debugLog: (data) =>
+    ipcRenderer.invoke("debug-log", data),
+
   resolveTransferConflict: (conflictId, options) =>
     ipcRenderer.invoke("resolve-transfer-conflict", conflictId, options),
 
-  searchDirectory: (rootPath, query, filterType, showHidden = false, options = {}) =>
-    ipcRenderer.invoke(
-      "search-directory",
-      rootPath,
-      query,
-      filterType,
-      Boolean(showHidden),
-      options
-    ),
 
   calculateHash: async (filePath, algorithm) => {
     const res = await ipcRenderer.invoke("get-file-hash", filePath, [algorithm]);

@@ -39,16 +39,45 @@ function cancelSearch() {
 // ----------------------------------------------------------
 
 function tokenize(queryStr) {
-  // Put spaces around parentheses so they separate cleanly
-  const clean = queryStr.replace(/\(/g, " ( ").replace(/\)/g, " ) ");
-  const regex = /("[^"]*"|\S+)/g;
-  const matches = clean.match(regex) || [];
-  return matches.map(token => {
-    let val = token;
-    if (val.startsWith('"') && val.endsWith('"')) {
-      val = val.slice(1, -1);
+  const tokens = [];
+  let currentToken = "";
+  let inQuotes = false;
+  
+  for (let i = 0; i < queryStr.length; i++) {
+    const char = queryStr[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+      currentToken += char;
+    } else if (inQuotes) {
+      currentToken += char;
+    } else if (char === "(" || char === ")") {
+      if (currentToken.trim()) {
+        tokens.push(currentToken.trim());
+      }
+      tokens.push(char);
+      currentToken = "";
+    } else if (/\s/.test(char)) {
+      if (currentToken.trim()) {
+        tokens.push(currentToken.trim());
+        currentToken = "";
+      }
+    } else {
+      currentToken += char;
     }
-    return val;
+  }
+  if (currentToken.trim()) {
+    tokens.push(currentToken.trim());
+  }
+
+  return tokens.map(token => {
+    const fieldMatch = token.match(/^(name|type|extension|size|date):"([^"]*)"$/i);
+    if (fieldMatch) {
+      return `${fieldMatch[1]}:${fieldMatch[2]}`;
+    }
+    if (token.startsWith('"') && token.endsWith('"')) {
+      return token.slice(1, -1);
+    }
+    return token;
   });
 }
 
@@ -123,17 +152,24 @@ function parseToPostfix(tokens) {
 // 2. Evaluator Functions
 // ----------------------------------------------------------
 
+const regexCache = new Map();
+function getCompiledRegex(pattern) {
+  if (regexCache.has(pattern)) {
+    return regexCache.get(pattern);
+  }
+  try {
+    const rx = new RegExp(pattern, "i");
+    regexCache.set(pattern, rx);
+    return rx;
+  } catch (e) {
+    return null;
+  }
+}
+
 function matchText(text, searchVal, options = {}) {
   if (options.regex) {
-    try {
-      const rx = new RegExp(searchVal, "i");
-      return rx.test(text);
-    } catch (e) {
-      return false;
-    }
-  }
-  if (options.exactPhrase) {
-    return text.toLowerCase() === searchVal.toLowerCase();
+    const rx = getCompiledRegex(searchVal);
+    return rx ? rx.test(text) : false;
   }
   return text.toLowerCase().includes(searchVal.toLowerCase());
 }
@@ -162,22 +198,28 @@ function matchExtension(filename, extVal) {
   return allowed.includes(ext);
 }
 
+function parseSizeToBytes(num, unit) {
+  const u = (unit || "B").toUpperCase();
+  if (u === "KB") return num * 1024;
+  if (u === "MB") return num * 1024 * 1024;
+  if (u === "GB") return num * 1024 * 1024 * 1024;
+  if (u === "TB") return num * 1024 * 1024 * 1024 * 1024;
+  return num;
+}
+
 function matchSize(item, sizeVal) {
-  if (item.isDirectory) return false; // Skip size match on folders
+  if (item.isDirectory) return false;
   
-  const match = sizeVal.match(/^([><]=?|=)?\s*(\d+(?:\.\d+)?)\s*(KB|MB|GB|B)?$/i);
+  const match = sizeVal.match(/^([><]=?|=)?\s*(\d+(?:\.\d+)?)\s*(KB|MB|GB|TB|B)?$/i);
   if (!match) return false;
 
   const op = match[1] || "=";
   const num = parseFloat(match[2]);
-  const unit = (match[3] || "B").toUpperCase();
+  const unit = match[3] || "B";
 
-  let bytes = num;
-  if (unit === "KB") bytes = num * 1024;
-  else if (unit === "MB") bytes = num * 1024 * 1024;
-  else if (unit === "GB") bytes = num * 1024 * 1024 * 1024;
-
+  const bytes = parseSizeToBytes(num, unit);
   const size = item.size || 0;
+
   if (op === ">") return size > bytes;
   if (op === "<") return size < bytes;
   if (op === ">=") return size >= bytes;
@@ -193,32 +235,28 @@ function matchDate(item, dateVal, options = {}) {
   else if (dateType === "accessed") timeMs = item.atimeMs || 0;
   else timeMs = item.mtimeMs || 0;
 
-  // Check for operators in dateVal, e.g. ">2026-08-20"
   const match = dateVal.match(/^([><]=?|=)?\s*(\d{4}-\d{2}-\d{2})$/);
-  let op = ">="; // Default: from that date onward
-  let targetStr = dateVal;
+  if (!match) return false;
 
-  if (match) {
-    op = match[1] || ">=";
-    targetStr = match[2];
-  }
+  const op = match[1] || ">=";
+  const targetStr = match[2];
 
-  const targetTime = new Date(targetStr).getTime();
-  if (isNaN(targetTime)) return false;
+  const dateParts = targetStr.split("-");
+  const year = parseInt(dateParts[0], 10);
+  const month = parseInt(dateParts[1], 10) - 1;
+  const day = parseInt(dateParts[2], 10);
 
-  if (op === ">") return timeMs > targetTime;
-  if (op === "<") return timeMs < targetTime;
-  if (op === ">=") return timeMs >= targetTime;
-  if (op === "<=") return timeMs <= targetTime;
-  if (op === "=") {
-    // Check if on that calendar day (24h span)
-    const dayEnd = targetTime + 24 * 60 * 60 * 1000;
-    return timeMs >= targetTime && timeMs < dayEnd;
-  }
+  const localDayStart = new Date(year, month, day, 0, 0, 0, 0).getTime();
+  const localDayEnd = new Date(year, month, day, 23, 59, 59, 999).getTime();
+
+  if (op === ">") return timeMs > localDayEnd;
+  if (op === "<") return timeMs < localDayStart;
+  if (op === ">=") return timeMs >= localDayStart;
+  if (op === "<=") return timeMs <= localDayEnd;
+  if (op === "=") return timeMs >= localDayStart && timeMs <= localDayEnd;
   return false;
 }
 
-// Evaluate single term against item properties
 function evaluateTerm(term, item, options = {}, fileContentText = null) {
   const match = term.match(/^(name|type|extension|size|date):(.+)$/i);
   let field = "default";
@@ -246,19 +284,31 @@ function evaluateTerm(term, item, options = {}, fileContentText = null) {
 
   if (field === "default") {
     const matchesName = matchText(item.name, value, options);
+    if (matchesName) return true;
+
+    if (options.metadata) {
+      const ext = path.extname(item.name);
+      const matchesPath = matchText(item.path, value, options);
+      const matchesExt = ext ? matchText(ext, value, options) : false;
+      const matchesCreated = item.created ? matchText(item.created, value, options) : false;
+      const matchesModified = item.modified ? matchText(item.modified, value, options) : false;
+      const matchesType = matchText(item.isDirectory ? "folder" : "file", value, options);
+      if (matchesPath || matchesExt || matchesCreated || matchesModified || matchesType) {
+        return true;
+      }
+    }
+
     if (options.content && fileContentText && !item.isDirectory) {
       let matchesContent = false;
       if (options.regex) {
-        try {
-          const rx = new RegExp(value, "i");
-          matchesContent = rx.test(fileContentText);
-        } catch (e) {}
+        const rx = getCompiledRegex(value);
+        matchesContent = rx ? rx.test(fileContentText) : false;
       } else {
         matchesContent = fileContentText.toLowerCase().includes(value.toLowerCase());
       }
-      return matchesName || matchesContent;
+      if (matchesContent) return true;
     }
-    return matchesName;
+    return false;
   }
 
   return matchText(item.name, value, options);
@@ -347,9 +397,21 @@ async function searchFileContent(filePath, query, options = {}) {
 // ----------------------------------------------------------
 // 4. Asynchronous Directory Crawler Search
 // ----------------------------------------------------------
+const MAX_SEARCH_RESULTS = 5000;
+
 async function runSearch(scopesList, queryStr, filterType = "all", showHidden = false, options = {}, eventSender = null) {
   searchCancelled = false;
   const results = [];
+
+  const logFilePath = "C:\\Users\\suryw\\.gemini\\antigravity\\brain\\c9265c3d-8f8f-4708-9c0e-f8a8b7784398\\scratch\\gui_debug.log";
+  const runSearchLog = {
+    source: "SearchService",
+    message: "[SearchService] runSearch started",
+    data: { scopesList, queryStr, filterType, options }
+  };
+  try {
+    fs.appendFileSync(logFilePath, `[${new Date().toISOString()}] ${JSON.stringify(runSearchLog)}\n`, "utf8");
+  } catch(e) {}
   
   // 1. Validate paths
   const validScopes = [];
@@ -361,87 +423,118 @@ async function runSearch(scopesList, queryStr, filterType = "all", showHidden = 
   if (!validScopes.length) return [];
 
   // 2. Parse Query
-  const rawTokens = tokenize(queryStr);
-  
-  // Check for regex syntax validity at start
-  if (options.regex && queryStr) {
-    try {
-      new RegExp(queryStr);
-    } catch (err) {
-      throw new Error("Invalid regular expression.");
-    }
+  let rawTokens;
+  if (options.exactPhrase && queryStr) {
+    rawTokens = [queryStr];
+  } else {
+    rawTokens = tokenize(queryStr);
   }
 
   const tokens = preprocessTokens(rawTokens);
   const postfix = parseToPostfix(tokens);
 
-  // 3. Crawler Stack/Queue
-  const pending = [...validScopes];
-  let processedCount = 0;
+  // Check for regex syntax validity at start
+  if (options.regex) {
+    for (const token of postfix) {
+      if (!["and", "or", "not"].includes(token.toLowerCase())) {
+        const match = token.match(/^(name|type|extension|size|date):(.+)$/i);
+        const value = match ? match[2] : token;
+        try {
+          new RegExp(value);
+        } catch (err) {
+          throw new Error(`Invalid regular expression: "${value}"`);
+        }
+      }
+    }
+  }
 
-  while (pending.length && results.length < 5000) {
+  // 3. Crawler Stack/Queue with junction/loop protection
+  const pending = [...validScopes];
+  const visitedPaths = new Set();
+  for (const scope of validScopes) {
+    try {
+      const real = await fsp.realpath(scope);
+      visitedPaths.add(real);
+    } catch (e) {}
+  }
+
+  let scannedItemsCount = 0;
+  let skippedFoldersCount = 0;
+
+  while (pending.length && results.length < MAX_SEARCH_RESULTS) {
     if (searchCancelled) {
       break;
     }
 
     const current = pending.pop();
+    
     let entries;
     try {
       entries = await fsp.readdir(current, { withFileTypes: true });
     } catch (e) {
-      // Access denied / skip
+      skippedFoldersCount++;
       continue;
     }
 
     for (const entry of entries) {
       if (searchCancelled) break;
+      scannedItemsCount++;
+
+      // Throttle progress updates to 100 scanned items and yield
+      if (scannedItemsCount % 100 === 0) {
+        if (eventSender) {
+          eventSender.send("search:progress", {
+            scanned: scannedItemsCount,
+            resultsCount: results.length,
+            currentPath: current
+          });
+        }
+        await new Promise(resolve => setImmediate(resolve));
+      }
 
       const fullPath = path.join(current, entry.name);
       const isDirectory = entry.isDirectory();
 
-      // Check Hidden
-      let isHidden = false;
-      try {
-        if (entry.name.startsWith(".")) {
-          isHidden = true;
-        } else {
-          // Check Windows attributes
-          const attributes = execSync(`attrib "${fullPath}"`, { windowsHide: true }).toString();
-          if (attributes.substring(0, 12).includes("H")) {
-            isHidden = true;
-          }
-        }
-      } catch (e) {}
-
+      // Check Hidden (No expensiveattrib command per item!)
+      const isHidden = entry.name.startsWith(".") || entry.name.startsWith("$");
       if (isHidden && !showHidden && !options.includeHidden) {
         continue;
       }
 
       // Check System Folders
-      const isSystemPath = 
-        fullPath.includes("System Volume Information") || 
-        fullPath.includes("$Recycle.Bin") || 
+      const isSystem = 
+        entry.name === "System Volume Information" || 
+        entry.name === "$RECYCLE.BIN" || 
+        entry.name === "$Recycle.Bin" || 
+        entry.name === "AppData" ||
         fullPath.includes("Windows\\System32");
-        
-      if (isSystemPath && !options.includeSystem) {
+
+      if (isSystem && !options.includeSystem) {
         continue;
       }
 
-      // Push subdirectory to crawler stack
+      // Push subdirectory to crawler stack with realpath validation to prevent junction loops
       if (isDirectory) {
-        // Only recurse if scope is recursive (Subfolders, Entire Drive, Multi)
         const isRecursive = 
           options.searchScope === "Subfolders" || 
           options.searchScope === "Entire Drive" || 
           options.searchScope === "Multiple Drives" ||
-          options.searchScope === undefined; // Default recursive
+          options.searchScope === undefined;
           
         if (isRecursive) {
-          pending.push(fullPath);
+          try {
+            const real = await fsp.realpath(fullPath);
+            if (!visitedPaths.has(real)) {
+              visitedPaths.add(real);
+              pending.push(fullPath);
+            }
+          } catch (e) {
+            // Skip broken junctions/links
+          }
         }
       }
 
-      // Query verification
+      // Query verification - fetch metadata stats
       let stats = null;
       try {
         stats = await fsp.stat(fullPath);
@@ -461,17 +554,25 @@ async function runSearch(scopesList, queryStr, filterType = "all", showHidden = 
         created: stats.birthtime ? stats.birthtime.toISOString() : stats.ctime.toISOString()
       };
 
-      // Apply quick filterType first
+      // Apply quick type filter first
       let matchesQuickFilter = true;
       if (filterType !== "all") {
         matchesQuickFilter = matchType(item, filterType);
       }
-
       if (!matchesQuickFilter) continue;
 
-      // Read file content first if content search is enabled
+      // Check specific UI options filters (name, extension, size, date) BEFORE reading content
+      const nameMatch = options.name ? matchText(item.name, options.name, options) : true;
+      const extMatch = options.extension ? matchExtension(item.name, options.extension) : true;
+      const sizeMatch = options.sizeValue ? matchSize(item, `${options.sizeOperator || ">"}${options.sizeValue}${options.sizeUnit || "MB"}`) : true;
+      const dateMatch = options.dateValue ? matchDate(item, `${options.dateOperator || ">="}${options.dateValue}`, options) : true;
+
+      if (!nameMatch || !extMatch || !sizeMatch || !dateMatch) continue;
+
+      // Read file content ONLY if content search is enabled and it is a supported text file
       let fileContentText = null;
       if (options.content && !isDirectory) {
+        if (searchCancelled) break;
         const ext = path.extname(item.path).toLowerCase();
         if (TEXT_SEARCH_EXTENSIONS.has(ext)) {
           try {
@@ -486,36 +587,27 @@ async function runSearch(scopesList, queryStr, filterType = "all", showHidden = 
       const matchesQuery = evaluatePostfix(postfix, item, options, fileContentText);
       if (!matchesQuery) continue;
 
-      // If user specific filters exist (size, date, extension, name)
-      if (options.name && !matchText(item.name, options.name, options)) continue;
-      if (options.extension && !matchExtension(item.name, options.extension)) continue;
-      if (options.sizeValue && !matchSize(item, `${options.sizeOperator || ">"}${options.sizeValue}${options.sizeUnit || "MB"}`)) continue;
-      if (options.dateValue && !matchDate(item, `${options.dateValue}`, options)) continue;
-
-      // Content Search
+      // Extract content search snippet if matched
       let contentMatchLine = "";
       let contentMatchCount = 0;
-      if (options.content && !isDirectory) {
-        if (fileContentText) {
-          const plainTerms = postfix.filter(t => !["and","or","not"].includes(t.toLowerCase()) && !t.match(/^(name|type|extension|size|date):/i));
-          const target = plainTerms.length > 0 ? plainTerms[0] : queryStr;
-          if (target) {
-            const lines = fileContentText.split(/\r?\n/);
-            for (let idx = 0; idx < lines.length; idx++) {
-              const line = lines[idx];
-              let matches = false;
-              if (options.regex) {
-                try {
-                  matches = new RegExp(target, "i").test(line);
-                } catch(e){}
-              } else {
-                matches = line.toLowerCase().includes(target.toLowerCase());
-              }
-              if (matches) {
-                contentMatchCount++;
-                if (!contentMatchLine) {
-                  contentMatchLine = `Line ${idx + 1}: ${line.trim().substring(0, 120)}`;
-                }
+      if (options.content && !isDirectory && fileContentText) {
+        const plainTerms = postfix.filter(t => !["and", "or", "not"].includes(t.toLowerCase()) && !t.match(/^(name|type|extension|size|date):/i));
+        const target = plainTerms.length > 0 ? plainTerms[0] : queryStr;
+        if (target) {
+          const lines = fileContentText.split(/\r?\n/);
+          for (let idx = 0; idx < lines.length; idx++) {
+            const line = lines[idx];
+            let matches = false;
+            if (options.regex) {
+              const rx = getCompiledRegex(target);
+              matches = rx ? rx.test(line) : false;
+            } else {
+              matches = line.toLowerCase().includes(target.toLowerCase());
+            }
+            if (matches) {
+              contentMatchCount++;
+              if (!contentMatchLine) {
+                contentMatchLine = `Line ${idx + 1}: ${line.trim().substring(0, 120)}`;
               }
             }
           }
@@ -536,25 +628,22 @@ async function runSearch(scopesList, queryStr, filterType = "all", showHidden = 
         contentCount: contentMatchCount
       });
 
-      if (results.length >= 5000) break;
-    }
-
-    processedCount++;
-    if (processedCount % 50 === 0) {
-      if (eventSender) {
-        eventSender.send("search:progress", {
-          scanned: processedCount,
-          resultsCount: results.length,
-          currentPath: current
-        });
-      }
-      // Yield to event loop to allow cancellation
-      await new Promise(resolve => setImmediate(resolve));
+      if (results.length >= MAX_SEARCH_RESULTS) break;
     }
   }
 
+  console.log(`[Search Engine] Search finished. Skipped ${skippedFoldersCount} inaccessible folders.`);
+
   // 4. Sort Results
-  sortResults(results, options.sortBy || "Relevance", queryStr);
+  sortResults(results, options.sortBy || "Relevance", queryStr, tokens);
+
+  try {
+    fs.appendFileSync(logFilePath, `[${new Date().toISOString()}] ${JSON.stringify({
+      source: "SearchService",
+      message: "[SearchService] FINAL RESULTS",
+      data: { count: results.length, sample: results.map(r => r.name).slice(0, 5) }
+    })}\n`, "utf8");
+  } catch(e) {}
 
   return results;
 }
@@ -562,7 +651,7 @@ async function runSearch(scopesList, queryStr, filterType = "all", showHidden = 
 // ----------------------------------------------------------
 // 5. Sorting
 // ----------------------------------------------------------
-function sortResults(results, sortBy, queryStr) {
+function sortResults(results, sortBy, queryStr, tokens = []) {
   const lowerQuery = String(queryStr || "").toLowerCase();
 
   if (sortBy === "Name") {
@@ -574,23 +663,46 @@ function sortResults(results, sortBy, queryStr) {
   } else if (sortBy === "Type") {
     results.sort((a, b) => a.type.localeCompare(b.type));
   } else {
-    // Default: Relevance
+    // Default: Relevance sorting
+    const cleanQuery = tokens
+      .filter(t => !["and", "or", "not"].includes(t.toLowerCase()) && !t.match(/^(name|type|extension|size|date):/i))
+      .map(t => t.toLowerCase())
+      .join(" ");
+
+    if (!cleanQuery) {
+      results.sort((a, b) => a.name.localeCompare(b.name));
+      return;
+    }
+
     results.sort((a, b) => {
       const aName = a.name.toLowerCase();
       const bName = b.name.toLowerCase();
 
       // Priority 1: Exact Match
-      if (aName === lowerQuery && bName !== lowerQuery) return -1;
-      if (bName === lowerQuery && aName !== lowerQuery) return 1;
+      const aExact = aName === cleanQuery;
+      const bExact = bName === cleanQuery;
+      if (aExact && !bExact) return -1;
+      if (bExact && !aExact) return 1;
 
       // Priority 2: Starts With
-      const aStarts = aName.startsWith(lowerQuery);
-      const bStarts = bName.startsWith(lowerQuery);
+      const aStarts = aName.startsWith(cleanQuery);
+      const bStarts = bName.startsWith(cleanQuery);
       if (aStarts && !bStarts) return -1;
       if (bStarts && !aStarts) return 1;
 
-      // Priority 3: Length
-      return aName.length - bName.length;
+      // Priority 3: Contains
+      const aContains = aName.includes(cleanQuery);
+      const bContains = bName.includes(cleanQuery);
+      if (aContains && !bContains) return -1;
+      if (bContains && !aContains) return 1;
+
+      // Priority 4: Length
+      if (aName.length !== bName.length) {
+        return aName.length - bName.length;
+      }
+
+      // Priority 5: Alphabetical
+      return aName.localeCompare(bName);
     });
   }
 }

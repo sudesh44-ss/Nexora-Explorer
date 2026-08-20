@@ -987,7 +987,7 @@ function SecurityManager({ selectedItem, onClose }) {
 
             <div className="security-card" style={{ padding: "12px" }}>
               <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                <input
+                <input className="vault"
                   style={{ flex: 1, fontSize: "11px", padding: "4px" }}
                   placeholder="Vault path (e.g. C:\\MyVault.vault)"
                   value={vaultPath}
@@ -999,7 +999,7 @@ function SecurityManager({ selectedItem, onClose }) {
               </div>
 
               <div style={{ display: "flex", gap: "10px", alignItems: "center", marginTop: "10px" }}>
-                <input
+                <input className="vault"
                   type="password"
                   style={{ flex: 1, fontSize: "11px", padding: "4px" }}
                   placeholder="Vault Password"

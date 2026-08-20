@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import "./OCRManager.css";
 
 const languageCodes = {
@@ -25,6 +25,15 @@ function OCRManager({ selectedItem, onClose }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusText, setStatusText] = useState("Waiting for OCR operation");
   
+  const [ocrState, setOcrState] = useState(selectedItem ? "FILE_SELECTED" : "IDLE");
+  const [currentJobId, setCurrentJobId] = useState(null);
+  const [totalPages, setTotalPages] = useState(0);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [completedPages, setCompletedPages] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [errorMessage, setErrorMessage] = useState("");
+  const activeJobIdRef = useRef(null);
+
   // Settings State
   const [engine, setEngine] = useState("Default OCR Engine");
   const [ocrSettings, setOcrSettings] = useState({
@@ -113,9 +122,45 @@ function OCRManager({ selectedItem, onClose }) {
     });
 
     const unsubProgress = window.electronFeatures.onOcrProgress((progressData) => {
-      // Progress details for current item
-      setOcrProgress(progressData.progress);
-      setStatusText(`Processing page ${progressData.currentPage} of ${progressData.totalPages}...`);
+      if (activeJobIdRef.current && progressData.jobId === activeJobIdRef.current) {
+        if (progressData.percent !== undefined) {
+          setOcrProgress(progressData.percent);
+        }
+        if (progressData.stage) {
+          setOcrState(progressData.stage);
+        }
+        if (progressData.currentPage !== undefined) {
+          setCurrentPage(progressData.currentPage);
+        }
+        if (progressData.totalPages !== undefined) {
+          setTotalPages(progressData.totalPages);
+        }
+        if (progressData.completedPages !== undefined) {
+          setCompletedPages(progressData.completedPages);
+        }
+        if (progressData.message) {
+          setStatusText(progressData.message);
+        }
+      }
+
+      // Also update the queue item progress in real-time
+      setQueueState((prevQueue) => {
+        if (!prevQueue || !prevQueue.items) return prevQueue;
+        const updatedItems = prevQueue.items.map((item) => {
+          if (item.id === progressData.jobId) {
+            return {
+              ...item,
+              progress: progressData.percent !== null && progressData.percent !== undefined ? progressData.percent : item.progress,
+              currentPage: progressData.currentPage,
+              totalPages: progressData.totalPages,
+              completedPages: progressData.completedPages,
+              statusText: progressData.message
+            };
+          }
+          return item;
+        });
+        return { ...prevQueue, items: updatedItems };
+      });
     });
 
     const unsubFinished = window.electronFeatures.onOcrQueueFinished(() => {
@@ -130,6 +175,23 @@ function OCRManager({ selectedItem, onClose }) {
     };
   }, []);
 
+  // Elapsed seconds timer useEffect
+  useEffect(() => {
+    let interval = null;
+    if (isProcessing) {
+      const startTime = Date.now();
+      setElapsedSeconds(0);
+      interval = setInterval(() => {
+        setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
+      }, 1000);
+    } else {
+      setElapsedSeconds(0);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isProcessing]);
+
   // Update selected file from prop
   useEffect(() => {
     if (selectedItem) {
@@ -139,8 +201,15 @@ function OCRManager({ selectedItem, onClose }) {
       setIsProcessing(false);
       setOcrOutput("");
       setOcrResultMeta(null);
+      setOcrState("FILE_SELECTED");
+      setTotalPages(0);
+      setCurrentPage(0);
+      setCompletedPages(0);
+      setErrorMessage("");
+      setElapsedSeconds(0);
     } else {
       setSelectedFile(null);
+      setOcrState("IDLE");
     }
   }, [selectedItem]);
 
@@ -160,12 +229,33 @@ function OCRManager({ selectedItem, onClose }) {
       setIsProcessing(false);
       setOcrOutput("");
       setOcrResultMeta(null);
+      setOcrState("FILE_SELECTED");
+      setTotalPages(0);
+      setCurrentPage(0);
+      setCompletedPages(0);
+      setErrorMessage("");
+      setElapsedSeconds(0);
     }
   };
 
   // ----------------------------------------------------------
   // OCR Operation Triggers
   // ----------------------------------------------------------
+  const cancelCurrentOCR = () => {
+    if (currentJobId) {
+      window.electronFeatures.ocrCancel(currentJobId)
+        .then(() => {
+          setIsProcessing(false);
+          setOcrState("CANCELLED");
+          setOcrProgress(0);
+          setStatusText("OCR cancelled");
+        })
+        .catch((err) => {
+          console.error("Failed to cancel OCR:", err);
+        });
+    }
+  };
+
   const startOCR = () => {
     if (!selectedFile) {
       alert("Please select a file first.");
@@ -179,12 +269,22 @@ function OCRManager({ selectedItem, onClose }) {
       return;
     }
 
+    const jobId = `ocr-${Date.now()}`;
+    setCurrentJobId(jobId);
+    activeJobIdRef.current = jobId;
+
     setIsProcessing(true);
-    setOcrProgress(5);
+    setOcrProgress(0);
     setOcrOutput("");
+    setOcrState("PREPARING");
     setStatusText("Initializing OCR process...");
+    setTotalPages(0);
+    setCurrentPage(0);
+    setCompletedPages(0);
+    setErrorMessage("");
 
     const options = {
+      jobId,
       language: languageCodes[selectedLanguage] || "eng",
       dpi: ocrSettings.dpi,
       pdfRange: ocrSettings.pdfRange,
@@ -199,10 +299,17 @@ function OCRManager({ selectedItem, onClose }) {
           setOcrOutput(res.text);
           setOcrResultMeta(res);
           setOcrProgress(100);
+          setOcrState("COMPLETED");
           setStatusText("Processing completed.");
           setActiveTab("output");
+        } else if (res.cancelled) {
+          setOcrState("CANCELLED");
+          setOcrProgress(0);
+          setStatusText("OCR cancelled");
         } else {
           setOcrProgress(0);
+          setOcrState("ERROR");
+          setErrorMessage(res.error || "Unknown error occurred");
           setStatusText("Failed");
           alert(`OCR processing failed: ${res.error}`);
         }
@@ -210,6 +317,8 @@ function OCRManager({ selectedItem, onClose }) {
       .catch((err) => {
         setIsProcessing(false);
         setOcrProgress(0);
+        setOcrState("ERROR");
+        setErrorMessage(err.message || "Unknown error occurred");
         setStatusText("Error");
         alert(`Error: ${err.message}`);
       });
@@ -453,33 +562,191 @@ function OCRManager({ selectedItem, onClose }) {
               </div>
             </div>
 
-            {/* Start OCR */}
-            <div className="ocr-action-panel">
-              <div>
-                <strong>Ready to extract text</strong>
-                <p>Select an image or scanned document and start OCR processing.</p>
-              </div>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button className="ocr-secondary-btn" onClick={handleAddCurrentFileToQueue} disabled={!selectedFile}>
-                  Add to Batch Queue
-                </button>
-                <button className="ocr-primary-btn" onClick={startOCR} disabled={isProcessing || !selectedFile}>
-                  {isProcessing ? "Processing..." : "Start OCR"}
-                </button>
-              </div>
-            </div>
+            {/* Start OCR / Processing Panel */}
+            {isProcessing || ["PREPARING", "EXTRACTING_PDF", "OCR_PROCESSING", "FINALIZING", "COMPLETED", "ERROR", "CANCELLED"].includes(ocrState) ? (
+              <div className="ocr-processing-panel" style={{ border: "1px solid #e5e7eb", borderRadius: "8px", padding: "16px", backgroundColor: "#f9fafb", marginTop: "15px" }}>
+                <h4 style={{ margin: "0 0 12px 0", fontSize: "14px", fontWeight: "600", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span>OCR Processing</span>
+                  <span style={{ fontSize: "11px", fontWeight: "normal", color: "#6b7280" }}>Job ID: {currentJobId}</span>
+                </h4>
+                
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", fontSize: "12px", marginBottom: "12px" }}>
+                  <div>
+                    <span style={{ color: "#6b7280", display: "block" }}>Document:</span>
+                    <strong>{selectedFile ? selectedFile.name : "—"}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: "#6b7280", display: "block" }}>Stage:</span>
+                    <strong>{ocrState === "IDLE" ? "No file selected" :
+                             ocrState === "FILE_SELECTED" ? "Ready to extract text" :
+                             ocrState === "PREPARING" ? "Preparing document..." :
+                             ocrState === "EXTRACTING_PDF" ? "Preparing PDF pages..." :
+                             ocrState === "OCR_PROCESSING" ? "Running OCR..." :
+                             ocrState === "FINALIZING" ? "Combining extracted text..." :
+                             ocrState === "COMPLETED" ? "OCR completed" :
+                             ocrState === "ERROR" ? "OCR failed" :
+                             ocrState === "CANCELLED" ? "OCR cancelled" : ocrState}</strong>
+                  </div>
+                  {totalPages > 0 && (
+                    <>
+                      <div>
+                        <span style={{ color: "#6b7280", display: "block" }}>Page:</span>
+                        <strong>{currentPage || "—"} / {totalPages}</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: "#6b7280", display: "block" }}>Completed / Remaining:</span>
+                        <strong>{completedPages} completed / {totalPages - completedPages} remaining</strong>
+                      </div>
+                    </>
+                  )}
+                  <div>
+                    <span style={{ color: "#6b7280", display: "block" }}>Elapsed:</span>
+                    <strong>{(() => {
+                      const mins = Math.floor(elapsedSeconds / 60);
+                      const secs = elapsedSeconds % 60;
+                      return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+                    })()}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: "#6b7280", display: "block" }}>Estimated remaining:</span>
+                    <strong>{totalPages > 0 ? (() => {
+                      if (totalPages <= 0 || completedPages <= 0) {
+                        return "Calculating...";
+                      }
+                      const avgTimePerPage = elapsedSeconds / completedPages;
+                      const remainingPages = totalPages - completedPages;
+                      const estSec = Math.round(avgTimePerPage * remainingPages);
+                      const mins = Math.floor(estSec / 60);
+                      const secs = estSec % 60;
+                      return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+                    })() : "—"}</strong>
+                  </div>
+                </div>
 
-            {/* Progress */}
-            <div className="ocr-progress-card">
-              <div className="ocr-progress-header">
-                <span>OCR Progress</span>
-                <strong>{isProcessing ? `${ocrProgress}%` : "0%"}</strong>
+                <div className="ocr-progress-card" style={{ padding: "0", background: "none", border: "none", boxShadow: "none", marginBottom: "12px" }}>
+                  <div className="ocr-progress-header" style={{ marginBottom: "6px" }}>
+                    <span>Progress</span>
+                    <strong>{ocrProgress !== null && ocrProgress !== undefined ? `${ocrProgress}%` : "Processing..."}</strong>
+                  </div>
+                  <div className="ocr-progress-track">
+                    <div 
+                      className={`ocr-progress-value ${ocrProgress === null ? "indeterminate" : ""}`} 
+                      style={{ 
+                        width: ocrProgress !== null && ocrProgress !== undefined ? `${ocrProgress}%` : "100%"
+                      }} 
+                    />
+                  </div>
+                  <div className="ocr-progress-status" style={{ marginTop: "6px", fontSize: "11px", color: "#4b5563" }}>
+                    {statusText}
+                  </div>
+                </div>
+
+                {isProcessing && (
+                  <button 
+                    className="ocr-secondary-btn" 
+                    onClick={cancelCurrentOCR}
+                    style={{ width: "100%", height: "34px", color: "#dc2626", borderColor: "#dc2626", fontWeight: "bold" }}
+                  >
+                    Cancel OCR
+                  </button>
+                )}
+
+                {ocrState === "CANCELLED" && (
+                  <div style={{ borderTop: "1px solid #e5e7eb", marginTop: "12px", paddingTop: "12px" }}>
+                    <div style={{ color: "#b91c1c", backgroundColor: "#fee2e2", padding: "8px", borderRadius: "6px", fontSize: "11px", textAlign: "center", fontWeight: "bold", marginBottom: "10px" }}>
+                      OCR Cancelled
+                    </div>
+                    <button className="ocr-primary-btn" onClick={startOCR} style={{ width: "100%", height: "30px", fontSize: "10px" }}>
+                      Restart OCR
+                    </button>
+                  </div>
+                )}
+                
+                {ocrState === "ERROR" && (
+                  <div style={{ borderTop: "1px solid #e5e7eb", marginTop: "12px", paddingTop: "12px" }}>
+                    <div style={{ color: "#b91c1c", backgroundColor: "#fee2e2", padding: "8px", borderRadius: "6px", fontSize: "11px", textAlign: "center", fontWeight: "bold", marginBottom: "10px" }}>
+                      OCR Failed: {errorMessage}
+                    </div>
+                    <button className="ocr-primary-btn" onClick={startOCR} style={{ width: "100%", height: "30px", fontSize: "10px" }}>
+                      Retry OCR
+                    </button>
+                  </div>
+                )}
+
+                {ocrState === "COMPLETED" && (
+                  <div style={{ borderTop: "1px solid #e5e7eb", marginTop: "12px", paddingTop: "12px" }}>
+                    <div style={{ color: "#10b981", fontWeight: "bold", fontSize: "13px", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
+                      <span>✓</span> OCR Completed
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "11px", marginBottom: "12px" }}>
+                      <div>
+                        <span style={{ color: "#6b7280" }}>Pages:</span> <strong>{totalPages || 1}</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: "#6b7280" }}>Processed:</span> <strong>{completedPages || totalPages || 1}</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: "#6b7280" }}>Failed:</span> <strong>0</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: "#6b7280" }}>Time:</span> <strong>{(() => {
+                          const mins = Math.floor(elapsedSeconds / 60);
+                          const secs = elapsedSeconds % 60;
+                          return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+                        })()}</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: "#6b7280" }}>Characters:</span> <strong>{ocrOutput ? ocrOutput.length : 0}</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: "#6b7280" }}>Language:</span> <strong>{selectedLanguage}</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: "#6b7280" }}>Confidence:</span> <strong>{confidence}</strong>
+                      </div>
+                    </div>
+                    
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}>
+                      <button className="ocr-primary-btn" onClick={() => setActiveTab("output")} style={{ height: "30px", fontSize: "10px" }}>
+                        View Output
+                      </button>
+                      <button className="ocr-secondary-btn" onClick={startOCR} style={{ height: "30px", fontSize: "10px" }}>
+                        Re-run OCR
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="ocr-progress-track">
-                <div className="ocr-progress-value" style={{ width: `${ocrProgress}%` }} />
-              </div>
-              <div className="ocr-progress-status">{isProcessing ? statusText : "Waiting for OCR operation"}</div>
-            </div>
+            ) : (
+              /* Ready to start action panel */
+              <>
+                <div className="ocr-action-panel">
+                  <div>
+                    <strong>{selectedFile ? "Ready to extract text" : "No file selected"}</strong>
+                    <p>Select an image or scanned document and start OCR processing.</p>
+                  </div>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button className="ocr-secondary-btn" onClick={handleAddCurrentFileToQueue} disabled={!selectedFile}>
+                      Add to Batch Queue
+                    </button>
+                    <button className="ocr-primary-btn" onClick={startOCR} disabled={isProcessing || !selectedFile}>
+                      Start OCR
+                    </button>
+                  </div>
+                </div>
+
+                <div className="ocr-progress-card">
+                  <div className="ocr-progress-header">
+                    <span>OCR Progress</span>
+                    <strong>0%</strong>
+                  </div>
+                  <div className="ocr-progress-track">
+                    <div className="ocr-progress-value" style={{ width: "0%" }} />
+                  </div>
+                  <div className="ocr-progress-status">Waiting for OCR operation</div>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -695,6 +962,62 @@ function OCRManager({ selectedItem, onClose }) {
                 <strong style={{ color: "#dc2626" }}>{queueState.items.filter(i => i.status === "failed").length}</strong>
               </div>
             </div>
+
+            {/* Dynamic Queue active panel when processing */}
+            {queueState.isProcessing && (() => {
+              const activeItem = queueState.items.find(i => i.status === "processing");
+              if (!activeItem) return null;
+              
+              const completedCount = queueState.items.filter(i => i.status === "completed").length;
+              const totalCount = queueState.items.length;
+              const currentIndex = queueState.items.findIndex(i => i.status === "processing");
+              
+              return (
+                <div className="ocr-queue-active-panel" style={{ border: "1px solid #e5e7eb", borderRadius: "8px", padding: "14px", backgroundColor: "#f9fafb", marginBottom: "15px", marginTop: "15px" }}>
+                  <h4 style={{ margin: "0 0 10px 0", fontSize: "12px", color: "#374151" }}>
+                    🔄 Active Batch Queue Processing
+                  </h4>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", fontSize: "11px", marginBottom: "10px" }}>
+                    <div>
+                      <span style={{ color: "#6b7280" }}>Current File:</span> <strong>{activeItem.fileName}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: "#6b7280" }}>Queue Progress:</span> <strong>{completedCount} / {totalCount} completed</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: "#6b7280" }}>File Index:</span> <strong>{currentIndex + 1} / {totalCount}</strong>
+                    </div>
+                    {activeItem.totalPages > 0 && (
+                      <div>
+                        <span style={{ color: "#6b7280" }}>Page:</span> <strong>{activeItem.currentPage || 1} / {activeItem.totalPages}</strong>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Progress Bar for Current File */}
+                  <div className="ocr-progress-card" style={{ padding: "0", background: "none", border: "none", boxShadow: "none", marginBottom: "10px" }}>
+                    <div className="ocr-progress-header" style={{ marginBottom: "4px" }}>
+                      <span>Current File Progress</span>
+                      <strong>{activeItem.progress}%</strong>
+                    </div>
+                    <div className="ocr-progress-track" style={{ height: "4px" }}>
+                      <div className="ocr-progress-value" style={{ width: `${activeItem.progress}%` }} />
+                    </div>
+                  </div>
+
+                  {/* Progress Bar for Overall Queue */}
+                  <div className="ocr-progress-card" style={{ padding: "0", background: "none", border: "none", boxShadow: "none" }}>
+                    <div className="ocr-progress-header" style={{ marginBottom: "4px" }}>
+                      <span>Overall Queue Progress</span>
+                      <strong>{totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0}%</strong>
+                    </div>
+                    <div className="ocr-progress-track" style={{ height: "4px" }}>
+                      <div className="ocr-progress-value" style={{ width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%`, backgroundColor: "#10b981" }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="ocr-queue-table" style={{ maxHeight: "250px", overflowY: "auto" }}>
               <div className="ocr-queue-header" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", fontWeight: "bold", padding: "8px", borderBottom: "1px solid #e5e7eb" }}>

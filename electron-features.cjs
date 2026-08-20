@@ -1698,6 +1698,10 @@ ipcMain.handle("ocr:start-file", async (event, filePath, options) => {
   }
 });
 
+ipcMain.handle("ocr:cancel", async (_event, jobId) => {
+  return ocrService.cancelOcrJob(jobId);
+});
+
 ipcMain.handle("ocr:add-queue", async (_event, filePaths, options) => {
   return ocrService.addToQueue(filePaths, options);
 });

@@ -45,6 +45,11 @@ function CloudIntegration({ onClose }) {
 
   // Offline cache states
   const [offlineFiles, setOfflineFiles] = useState([]);
+  
+  // Independent Loading States
+  const [providersLoading, setProvidersLoading] = useState(false);
+  const [offlineLoading, setOfflineLoading] = useState(false);
+  const [conflictsLoading, setConflictsLoading] = useState(false);
 
   // Notification overlays
   const [status, setStatus] = useState("");
@@ -62,58 +67,89 @@ function CloudIntegration({ onClose }) {
   };
 
   const loadProviders = async () => {
+    console.log("[CloudIntegration] providers request started");
+    const start = performance.now();
+    setProvidersLoading(true);
     try {
       const list = await window.electronFeatures.cloudGetProviders();
       setProviders(list || []);
+      console.log(`[CloudIntegration] providers request completed (took ${performance.now() - start}ms)`);
     } catch (e) {
       console.error(e);
+    } finally {
+      setProvidersLoading(false);
     }
   };
 
   const loadOfflineFiles = async () => {
+    console.log("[CloudIntegration] offline request started");
+    const start = performance.now();
+    setOfflineLoading(true);
     try {
       const list = await window.electronFeatures.cloudGetOfflineFiles();
       setOfflineFiles(list || []);
+      console.log(`[CloudIntegration] offline request completed (took ${performance.now() - start}ms)`);
     } catch (e) {
       console.error(e);
+    } finally {
+      setOfflineLoading(false);
     }
   };
 
   const loadConflicts = async () => {
+    console.log("[CloudIntegration] conflicts request started");
+    const start = performance.now();
+    setConflictsLoading(true);
     try {
       const list = await window.electronFeatures.cloudGetConflicts();
       setConflicts(list || []);
+      console.log(`[CloudIntegration] conflicts request completed (took ${performance.now() - start}ms)`);
     } catch (e) {
       console.error(e);
+    } finally {
+      setConflictsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadProviders();
-    loadOfflineFiles();
-    loadConflicts();
+    console.log("[CloudIntegration] component mounted");
+    let isMounted = true;
+
+    const init = async () => {
+      if (isMounted) {
+        loadProviders();
+        loadOfflineFiles();
+        loadConflicts();
+      }
+    };
+    init();
 
     // Subscribe to sync progress callbacks
     const unsubProgress = window.electronFeatures.onCloudSyncProgress((data) => {
-      setSyncProgress(data);
+      if (isMounted) setSyncProgress(data);
     });
 
     const unsubComplete = window.electronFeatures.onCloudSyncComplete(() => {
-      setStatus("Sync cycle completed successfully!");
-      setLoading(false);
-      setActiveSyncingJob(null);
-      loadConflicts();
-      loadProviders();
+      if (isMounted) {
+        setStatus("Sync cycle completed successfully!");
+        setLoading(false);
+        setActiveSyncingJob(null);
+        loadConflicts();
+        loadProviders();
+      }
     });
 
     const unsubFailed = (data) => {
-      setError(`Sync failed: ${data.error}`);
-      setLoading(false);
-      setActiveSyncingJob(null);
+      if (isMounted) {
+        setError(`Sync failed: ${data.error}`);
+        setLoading(false);
+        setActiveSyncingJob(null);
+      }
     };
     const unsubFailedReg = window.electronFeatures.onCloudSyncFailed(unsubFailed);
 
     return () => {
+      isMounted = false;
       unsubProgress();
       unsubComplete();
       unsubFailedReg();
@@ -459,38 +495,42 @@ function CloudIntegration({ onClose }) {
               </div>
             </div>
 
-            <div className="cloud-provider-grid">
-              {providers.map((p) => (
-                <div className={`cloud-provider-card ${selectedProvider === p.id ? "selected" : ""}`} key={p.id} onClick={() => setSelectedProvider(p.id)}>
-                  <div className="cloud-provider-top">
-                    <div className="cloud-provider-icon">{p.name[0]}</div>
-                    <div className={p.status === "Connected" ? "cloud-connected" : "cloud-disconnected"}>
-                      <span></span>
-                      {p.status}
+            {providersLoading ? (
+              <div className="cloud-loading" style={{ fontSize: "11px", padding: "10px", color: "#6b7280" }}>Providers loading...</div>
+            ) : (
+              <div className="cloud-provider-grid">
+                {providers.map((p) => (
+                  <div className={`cloud-provider-card ${selectedProvider === p.id ? "selected" : ""}`} key={p.id} onClick={() => setSelectedProvider(p.id)}>
+                    <div className="cloud-provider-top">
+                      <div className="cloud-provider-icon">{p.name[0]}</div>
+                      <div className={p.status === "Connected" ? "cloud-connected" : "cloud-disconnected"}>
+                        <span></span>
+                        {p.status}
+                      </div>
+                    </div>
+                    <strong>{p.name}</strong>
+                    <p>{p.status === "Connected" ? "Storage adapter online and verified." : "Requires authentication keys."}</p>
+                    
+                    <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+                      {p.status !== "Connected" ? (
+                        <button className="cloud-primary-btn" style={{ padding: "4px 8px", fontSize: "11px" }} onClick={() => handleConnectProvider(p.id)}>
+                          Connect
+                        </button>
+                      ) : (
+                        <>
+                          <button className="cloud-secondary-btn" style={{ padding: "4px 8px", fontSize: "11px" }} onClick={() => { setCurrentProvider(p.id); setRemotePath(""); setActiveTab("files"); }}>
+                            Browse Files
+                          </button>
+                          <button className="cloud-danger-btn" style={{ padding: "4px 8px", fontSize: "11px" }} onClick={() => handleDisconnectProvider(p.id)}>
+                            Disconnect
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
-                  <strong>{p.name}</strong>
-                  <p>{p.status === "Connected" ? "Storage adapter online and verified." : "Requires authentication keys."}</p>
-                  
-                  <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
-                    {p.status !== "Connected" ? (
-                      <button className="cloud-primary-btn" style={{ padding: "4px 8px", fontSize: "11px" }} onClick={() => handleConnectProvider(p.id)}>
-                        Connect
-                      </button>
-                    ) : (
-                      <>
-                        <button className="cloud-secondary-btn" style={{ padding: "4px 8px", fontSize: "11px" }} onClick={() => { setCurrentProvider(p.id); setRemotePath(""); setActiveTab("files"); }}>
-                          Browse Files
-                        </button>
-                        <button className="cloud-danger-btn" style={{ padding: "4px 8px", fontSize: "11px" }} onClick={() => handleDisconnectProvider(p.id)}>
-                          Disconnect
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
             {/* Config Forms Modal Overlay */}
             {showConnectForm && (
@@ -737,26 +777,30 @@ function CloudIntegration({ onClose }) {
 
             <div className="cloud-section-card">
               <div className="cloud-section-title">Available Offline Files</div>
-              <div className="cloud-availability-list" style={{ maxHeight: "180px", overflowY: "auto" }}>
-                {offlineFiles.length === 0 ? (
-                  <div style={{ fontSize: "11px", padding: "10px", color: "#6b7280" }}>No files cached offline.</div>
-                ) : (
-                  offlineFiles.map((file, idx) => (
-                    <div className="cloud-availability-row" key={idx} style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", padding: "6px 0", borderBottom: "1px solid #f3f4f6" }}>
-                      <div>
-                        <strong>{file.name}</strong>
-                        <div style={{ fontSize: "9px", color: "#9ca3af" }}>[{file.provider.toUpperCase()}] {file.path}</div>
+              {offlineLoading ? (
+                <div style={{ fontSize: "11px", padding: "10px", color: "#6b7280" }}>Offline cache loading...</div>
+              ) : (
+                <div className="cloud-availability-list" style={{ maxHeight: "180px", overflowY: "auto" }}>
+                  {offlineFiles.length === 0 ? (
+                    <div style={{ fontSize: "11px", padding: "10px", color: "#6b7280" }}>No files cached offline.</div>
+                  ) : (
+                    offlineFiles.map((file, idx) => (
+                      <div className="cloud-availability-row" key={idx} style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", padding: "6px 0", borderBottom: "1px solid #f3f4f6" }}>
+                        <div>
+                          <strong>{file.name}</strong>
+                          <div style={{ fontSize: "9px", color: "#9ca3af" }}>[{file.provider.toUpperCase()}] {file.path}</div>
+                        </div>
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                          <span>{formatBytes(file.size)}</span>
+                          <button className="security-small-btn" style={{ color: "#c62828" }} onClick={() => { setCurrentProvider(file.provider); handleToggleOffline(file); }}>
+                            Remove Offline
+                          </button>
+                        </div>
                       </div>
-                      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                        <span>{formatBytes(file.size)}</span>
-                        <button className="security-small-btn" style={{ color: "#c62828" }} onClick={() => { setCurrentProvider(file.provider); handleToggleOffline(file); }}>
-                          Remove Offline
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -771,32 +815,36 @@ function CloudIntegration({ onClose }) {
               </div>
             </div>
 
-            <div className="cloud-conflict-list" style={{ maxHeight: "250px", overflowY: "auto" }}>
-              {conflicts.length === 0 ? (
-                <div style={{ padding: "20px", textAlign: "center", color: "#6b7280" }}>✓ No conflicts detected.</div>
-              ) : (
-                conflicts.map((conflict, idx) => (
-                  <div className="cloud-conflict-card" key={idx} style={{ border: "1px solid #fca5a5", backgroundColor: "#fff5f5", padding: "10px", borderRadius: "6px", marginBottom: "10px" }}>
-                    <div style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "8px" }}>
-                      <div style={{ color: "#dc2626", fontWeight: "bold" }}>⚠</div>
-                      <div>
-                        <strong>{conflict.relativePath}</strong>
-                        <div style={{ fontSize: "10px", color: "#4b5563" }}>Job: {conflict.jobId.toUpperCase()} | Size: {formatBytes(conflict.size)}</div>
+            {conflictsLoading ? (
+              <div style={{ padding: "20px", textAlign: "center", color: "#6b7280" }}>Conflicts loading...</div>
+            ) : (
+              <div className="cloud-conflict-list" style={{ maxHeight: "250px", overflowY: "auto" }}>
+                {conflicts.length === 0 ? (
+                  <div style={{ padding: "20px", textAlign: "center", color: "#6b7280" }}>✓ No conflicts detected.</div>
+                ) : (
+                  conflicts.map((conflict, idx) => (
+                    <div className="cloud-conflict-card" key={idx} style={{ border: "1px solid #fca5a5", backgroundColor: "#fff5f5", padding: "10px", borderRadius: "6px", marginBottom: "10px" }}>
+                      <div style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "8px" }}>
+                        <div style={{ color: "#dc2626", fontWeight: "bold" }}>⚠</div>
+                        <div>
+                          <strong>{conflict.relativePath}</strong>
+                          <div style={{ fontSize: "10px", color: "#4b5563" }}>Job: {conflict.jobId.toUpperCase()} | Size: {formatBytes(conflict.size)}</div>
+                        </div>
+                      </div>
+
+                      <div className="cloud-conflict-actions" style={{ display: "flex", gap: "6px" }}>
+                        <button className="security-small-btn" onClick={() => handleResolveConflict(conflict, "keep-local")}>Keep Local</button>
+                        <button className="security-small-btn" onClick={() => handleResolveConflict(conflict, "keep-cloud")}>Keep Cloud</button>
+                        <button className="security-small-btn" onClick={() => handleResolveConflict(conflict, "keep-both")}>Keep Both</button>
+                        <button className="security-primary-btn" style={{ padding: "2px 8px", fontSize: "10px" }} onClick={() => { setSelectedConflict(conflict); setShowConflictCompare(true); }}>
+                          Compare Versions
+                        </button>
                       </div>
                     </div>
-
-                    <div className="cloud-conflict-actions" style={{ display: "flex", gap: "6px" }}>
-                      <button className="security-small-btn" onClick={() => handleResolveConflict(conflict, "keep-local")}>Keep Local</button>
-                      <button className="security-small-btn" onClick={() => handleResolveConflict(conflict, "keep-cloud")}>Keep Cloud</button>
-                      <button className="security-small-btn" onClick={() => handleResolveConflict(conflict, "keep-both")}>Keep Both</button>
-                      <button className="security-primary-btn" style={{ padding: "2px 8px", fontSize: "10px" }} onClick={() => { setSelectedConflict(conflict); setShowConflictCompare(true); }}>
-                        Compare Versions
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+                  ))
+                )}
+              </div>
+            )}
 
             {/* Compare Modal */}
             {showConflictCompare && selectedConflict && (

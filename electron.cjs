@@ -973,6 +973,19 @@ ipcMain.handle("choose-folder", async (event) => {
   }
 });
 
+ipcMain.handle("debug-log", async (event, data) => {
+  try {
+    const fs = require("fs");
+    const logFilePath = "C:\\Users\\suryw\\.gemini\\antigravity\\brain\\c9265c3d-8f8f-4708-9c0e-f8a8b7784398\\scratch\\gui_debug.log";
+    const timestamp = new Date().toISOString();
+    const line = `[${timestamp}] ${JSON.stringify(data)}\n`;
+    fs.appendFileSync(logFilePath, line, "utf8");
+  } catch(e) {
+    console.error("Failed to write to gui_debug.log:", e);
+  }
+  return { success: true };
+});
+
 ipcMain.handle("resolve-transfer-conflict", async (event, conflictId, options) => {
   return { success: true };
 });
@@ -1181,6 +1194,17 @@ ipcMain.handle("create-item", async (event, parentPath, itemType) => {
 // Recursive search with optional type filter and advanced options.
 ipcMain.handle("search-directory", async (event, rootPath, query, filterType = "all", showHidden = false, options = {}) => {
   try {
+    const fs = require("fs");
+    const logFilePath = "C:\\Users\\suryw\\.gemini\\antigravity\\brain\\c9265c3d-8f8f-4708-9c0e-f8a8b7784398\\scratch\\gui_debug.log";
+    const logData = {
+      source: "MainProcess",
+      message: "[Main] searchDirectory IPC received",
+      data: { rootPath, query, filterType, showHidden, options }
+    };
+    try {
+      fs.appendFileSync(logFilePath, `[${new Date().toISOString()}] ${JSON.stringify(logData)}\n`, "utf8");
+    } catch(e) {}
+
     const searchService = require("./electron/services/search/searchService.cjs");
     
     // Resolve scope paths based on searchScope
@@ -1203,6 +1227,15 @@ ipcMain.handle("search-directory", async (event, rootPath, query, filterType = "
       }
     }
 
+    const runSearchLog = {
+      source: "MainProcess",
+      message: "[Main] Calling runSearch",
+      data: { scopesList, query, filterType, showHidden, options }
+    };
+    try {
+      fs.appendFileSync(logFilePath, `[${new Date().toISOString()}] ${JSON.stringify(runSearchLog)}\n`, "utf8");
+    } catch(e) {}
+
     const results = await searchService.runSearch(
       scopesList,
       query,
@@ -1211,6 +1244,16 @@ ipcMain.handle("search-directory", async (event, rootPath, query, filterType = "
       options,
       event.sender
     );
+
+    const returnLog = {
+      source: "MainProcess",
+      message: "[Main] Search result returned",
+      data: { isArray: Array.isArray(results), length: Array.isArray(results) ? results.length : null }
+    };
+    try {
+      fs.appendFileSync(logFilePath, `[${new Date().toISOString()}] ${JSON.stringify(returnLog)}\n`, "utf8");
+    } catch(e) {}
+
     return results;
   } catch (error) {
     return { error: error.message };

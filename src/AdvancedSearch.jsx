@@ -1,16 +1,37 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 import "./AdvancedSearch.css";
+
+const isPhysical = (p) => {
+  return p && !p.startsWith("tool:") && !p.startsWith("favorites:") && !p.startsWith("drives:");
+};
+
+const trace = (message, obj) => {
+  console.log(message, obj);
+  if (window.fileExplorer && window.fileExplorer.debugLog) {
+    window.fileExplorer.debugLog({ source: "Renderer", message, data: obj }).catch(() => {});
+  }
+};
 
 function AdvancedSearch({ currentPath, onNavigate, onClose }) {
   const [searchText, setSearchText] = useState("");
   const [showFilters, setShowFilters] = useState(true);
   const [activeFilter, setActiveFilter] = useState("All");
-  const [searchScope, setSearchScope] = useState("Current Folder");
+  const [searchScope, setSearchScope] = useState(() => {
+    return isPhysical(currentPath) ? "Current Folder" : "Selected Folder";
+  });
+  const [selectedFolderPath, setSelectedFolderPath] = useState(null);
+  const [prevPath, setPrevPath] = useState(currentPath);
+  const inputRef = useRef(null);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [statusText, setStatusText] = useState("");
+
+  if (currentPath !== prevPath) {
+    setPrevPath(currentPath);
+    setSearchScope(isPhysical(currentPath) ? "Current Folder" : "Selected Folder");
+  }
 
   const [filters, setFilters] = useState({
     name: "",
@@ -58,6 +79,19 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
     "Multiple Drives",
   ];
 
+  const isLocationSetupRequired = () => {
+    if (selectedFolderPath) {
+      return false;
+    }
+    if (searchScope === "Selected Folder") {
+      return !selectedFolderPath;
+    }
+    if (searchScope === "Current Folder" || searchScope === "Subfolders") {
+      return !isPhysical(currentPath);
+    }
+    return false;
+  };
+
   const updateFilter = (key, value) => {
     setFilters((prev) => ({
       ...prev,
@@ -87,6 +121,27 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
     };
   }, []);
 
+  const handleChooseFolder = async () => {
+    const res = await window.fileExplorer.chooseFolder();
+    if (res && res.success && res.path) {
+      trace("[AdvancedSearch] Selected folder changed:", res.path);
+      setSelectedFolderPath(res.path);
+      setSearchScope("Selected Folder");
+    }
+  };
+
+  const handleScopeChange = async (scope) => {
+    trace("[AdvancedSearch] Scope changed:", scope);
+    setSearchScope(scope);
+    if (scope === "Selected Folder" && !selectedFolderPath) {
+      const res = await window.fileExplorer.chooseFolder();
+      if (res && res.success && res.path) {
+        trace("[AdvancedSearch] Selected folder changed via scope change:", res.path);
+        setSelectedFolderPath(res.path);
+      }
+    }
+  };
+
   const handleSearch = async () => {
     if (!searchText.trim() && !filters.name && !filters.extension && !filters.sizeValue && !filters.dateValue) {
       alert("Please enter a query or configure at least one filter.");
@@ -96,8 +151,38 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
     setError("");
     setStatusText("Initializing search...");
     try {
-      const scopePath =
-        currentPath && !currentPath.startsWith("tool:") ? currentPath : "C:\\";
+      let scopePath = null;
+      if (searchScope === "Selected Folder") {
+        if (!selectedFolderPath) {
+          setError("Please choose a folder to search.");
+          setLoading(false);
+          return;
+        }
+        scopePath = selectedFolderPath;
+      } else if (searchScope === "Current Folder" || searchScope === "Subfolders") {
+        if (isPhysical(currentPath)) {
+          scopePath = currentPath;
+        } else if (selectedFolderPath) {
+          scopePath = selectedFolderPath;
+        } else {
+          setError("Cannot search from a virtual/tool view. Please select a physical folder to search.");
+          setLoading(false);
+          return;
+        }
+      } else if (searchScope === "Entire Drive") {
+        if (isPhysical(currentPath)) {
+          scopePath = currentPath;
+        } else if (selectedFolderPath) {
+          scopePath = selectedFolderPath;
+        } else {
+          setError("Please select a physical folder to determine the drive root.");
+          setLoading(false);
+          return;
+        }
+      } else if (searchScope === "Multiple Drives") {
+        scopePath = isPhysical(currentPath) ? currentPath : (selectedFolderPath || "C:\\");
+      }
+
       const filterType =
         filters.type === "All" ? "all" : filters.type.toLowerCase();
       
@@ -120,6 +205,17 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
         searchScope
       };
 
+      trace("[AdvancedSearch] SEARCH REQUEST", {
+        currentPath,
+        searchScope,
+        selectedFolderPath,
+        scopePath,
+        searchText,
+        filterType,
+        includeHidden: filters.includeHidden,
+        options
+      });
+
       const res = await window.fileExplorer.searchDirectory(
         scopePath,
         searchText,
@@ -127,6 +223,12 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
         filters.includeHidden,
         options
       );
+
+      trace("[AdvancedSearch] SEARCH RESPONSE", {
+        isArray: Array.isArray(res),
+        length: Array.isArray(res) ? res.length : null,
+        result: res
+      });
 
       if (res && res.error) {
         setError(res.error);
@@ -262,11 +364,21 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
 
       {/* Search Bar */}
       <div className="advanced-search-main">
-        <div className="search-input-wrapper">
+        <div 
+          className="search-input-wrapper" 
+          onClick={(e) => {
+            if (e.target.tagName !== "BUTTON") {
+              inputRef.current?.focus();
+            }
+          }}
+          style={{ cursor: "text" }}
+        >
           <span className="search-input-icon">⌕</span>
 
           <input
+            ref={inputRef}
             type="text"
+            autoFocus
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             onKeyDown={(e) => {
@@ -463,7 +575,7 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
             <select
               className="filter-select"
               value={searchScope}
-              onChange={(e) => setSearchScope(e.target.value)}
+              onChange={(e) => handleScopeChange(e.target.value)}
             >
               {scopes.map((scope) => (
                 <option key={scope} value={scope}>
@@ -471,6 +583,29 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
                 </option>
               ))}
             </select>
+
+            {(searchScope === "Selected Folder" || (!isPhysical(currentPath) && (searchScope === "Current Folder" || searchScope === "Subfolders"))) && (
+              <div className="selected-folder-info" style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px", fontSize: "12px" }}>
+                <span style={{ color: "#aaa", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                  Folder: <strong style={{ color: "var(--color-text)" }}>{selectedFolderPath || "None Selected"}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleChooseFolder}
+                  style={{
+                    padding: "3px 8px",
+                    fontSize: "11px",
+                    background: "var(--color-bg-light)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: "4px",
+                    color: "var(--color-text)",
+                    cursor: "pointer"
+                  }}
+                >
+                  Choose...
+                </button>
+              </div>
+            )}
 
             <label className="checkbox-row">
               <input 
@@ -645,8 +780,37 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
             </div>
           )}
 
+          {/* Location Setup required view */}
+          {isLocationSetupRequired() && (
+            <div className="location-setup-state" style={{ padding: "80px 20px", textAlign: "center", color: "#888" }}>
+              <div style={{ fontSize: "28px", marginBottom: "15px" }}>📁</div>
+              <div style={{ fontSize: "16px", fontWeight: "600", marginBottom: "8px", color: "var(--color-text)" }}>
+                No Search Directory Selected
+              </div>
+              <div style={{ fontSize: "13px", marginBottom: "20px", maxWidth: "400px", margin: "0 auto 20px", lineHeight: "1.5" }}>
+                Current location is not a physical folder. Please select a physical folder from your drive to begin searching.
+              </div>
+              <button
+                type="button"
+                onClick={handleChooseFolder}
+                style={{
+                  padding: "8px 20px",
+                  background: "var(--color-accent, #0078d4)",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontWeight: "600",
+                  transition: "background 0.2s"
+                }}
+              >
+                Choose Folder...
+              </button>
+            </div>
+          )}
+
           {/* Grouped results view */}
-          {!loading && !error && results.length > 0 && (
+          {!isLocationSetupRequired() && !loading && !error && results.length > 0 && (
             <div
               className="search-results-list"
               style={{ flex: 1, overflowY: "auto", padding: "10px" }}
@@ -716,7 +880,7 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
             </div>
           )}
 
-          {!loading && !error && results.length === 0 && (
+          {!isLocationSetupRequired() && !loading && !error && results.length === 0 && (
             <div className="search-empty-state">
               <div
                 className="empty-search-title"

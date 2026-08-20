@@ -7,31 +7,107 @@ const fs = require("fs");
 
 class GoogleDriveAdapter {
   constructor() {
-    this.clientId = secureCredentials.getCredential("GOOGLE_CLIENT_ID") || "dummy_google_client_id";
-    this.clientSecret = secureCredentials.getCredential("GOOGLE_CLIENT_SECRET") || "dummy_google_secret";
     this.redirectUri = "http://localhost:8524/callback";
     this.server = null;
   }
 
-  async connect(onTokenCallback) {
+  get clientId() {
+    return secureCredentials.getCredential("GOOGLE_CLIENT_ID") || "dummy_google_client_id";
+  }
+
+  get clientSecret() {
+    return secureCredentials.getCredential("GOOGLE_CLIENT_SECRET") || "dummy_google_secret";
+  }
+
+  cleanupServer(timeoutId) {
+    console.log("[Google OAuth] Cleaning up");
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    if (this.server) {
+      try {
+        this.server.close();
+      } catch (e) {
+        console.error("[GoogleDrive OAuth] Error closing server:", e);
+      }
+      this.server = null;
+      console.log("[Google OAuth] Authentication state reset");
+    }
+  }
+
+  async connect(config = {}) {
+    if (config && config.clientId) {
+      secureCredentials.setCredential("GOOGLE_CLIENT_ID", config.clientId);
+    }
+    if (config && config.clientSecret) {
+      secureCredentials.setCredential("GOOGLE_CLIENT_SECRET", config.clientSecret);
+    }
+
+    console.log("[GoogleDriveAdapter] Google OAuth initialization started");
+    const clientId = this.clientId;
+    const clientSecret = this.clientSecret;
+    const hasClientId = !!clientId && clientId !== "dummy_google_client_id";
+    const hasClientSecret = !!clientSecret && clientSecret !== "dummy_google_secret";
+
+    console.log("[GoogleDriveAdapter] Client ID present:", hasClientId);
+    if (clientId) {
+      const masked = clientId.length > 8 ? clientId.slice(0, 4) + "... " + clientId.slice(-4) : "short_or_dummy";
+      console.log("[GoogleDriveAdapter] Client ID masked:", masked);
+    }
+    console.log("[GoogleDriveAdapter] Client Secret configured:", hasClientSecret);
+    console.log("[GoogleDriveAdapter] Redirect URI:", this.redirectUri);
+    console.log("[GoogleDriveAdapter] Google Cloud project/config source: secureCredentials (cloud_credentials.json)");
+
+    if (!hasClientId || !hasClientSecret) {
+      console.log("[GoogleDriveAdapter] Error: Google Drive OAuth credentials are not configured.");
+      return {
+        success: false,
+        error: "Google Drive OAuth credentials are not configured."
+      };
+    }
+
+    const onTokenCallback = typeof config === "function" ? config : (config && config.onTokenCallback);
+
+    console.log("[Google OAuth] Authentication started");
     return new Promise((resolve, reject) => {
       // If we already have a refresh token, we are good
       const existingToken = secureCredentials.getCredential("GOOGLE_REFRESH_TOKEN");
       if (existingToken) {
+        console.log("[Google OAuth] Authentication succeeded (existing token)");
         return resolve({ success: true, message: "Already connected via refresh token" });
       }
 
-      // Start local callback server
       if (this.server) {
-        this.server.close();
+        console.log("[Google OAuth] Authentication failed (already in progress)");
+        return reject(new Error("Google Drive authentication is already in progress."));
       }
 
+      // Set a 60-second connection timeout
+      const timeoutId = setTimeout(() => {
+        this.cleanupServer();
+        console.log("[Google OAuth] Authentication timed out");
+        reject(new Error("Google OAuth authentication timed out. Please try again."));
+      }, 60000);
+
       this.server = http.createServer(async (req, res) => {
-        if (req.url.startsWith("/callback")) {
-          const urlParams = new URL(req.url, "http://localhost:8524");
-          const code = urlParams.searchParams.get("code");
+        const reqUrl = new URL(req.url, "http://localhost:8524");
+        if (reqUrl.pathname === "/callback") {
+          console.log("[Google OAuth] Callback received");
+          const code = reqUrl.searchParams.get("code");
+          const error = reqUrl.searchParams.get("error");
           
-          if (code) {
+          if (error) {
+            res.writeHead(400, { "Content-Type": "text/html" });
+            res.end(`<h3>Authentication failed: ${error}</h3>`);
+            this.cleanupServer(timeoutId);
+            if (error === "access_denied") {
+              console.log("[Google OAuth] Authentication cancelled");
+              reject(new Error("Google OAuth authentication was cancelled."));
+            } else {
+              console.log("[Google OAuth] Authentication failed:", error);
+              reject(new Error(`Google OAuth error: ${error}`));
+            }
+          } else if (code) {
             res.writeHead(200, { "Content-Type": "text/html" });
             res.end("<h3>Authentication successful! You can close this window.</h3>");
             
@@ -46,32 +122,55 @@ class GoogleDriveAdapter {
                 secureCredentials.setCredential("GOOGLE_ACCESS_TOKEN_EXPIRY", String(Date.now() + tokenRes.expires_in * 1000));
               }
               
-              if (onTokenCallback) onTokenCallback();
+              this.cleanupServer(timeoutId);
+              console.log("[Google OAuth] Authentication succeeded");
+              if (typeof onTokenCallback === "function") {
+                onTokenCallback();
+              }
               resolve({ success: true });
             } catch (e) {
+              this.cleanupServer(timeoutId);
+              console.log("[Google OAuth] Authentication failed (token exchange error)");
               reject(e);
-            } finally {
-              if (this.server) {
-                this.server.close();
-                this.server = null;
-              }
             }
           } else {
             res.writeHead(400, { "Content-Type": "text/html" });
             res.end("<h3>Auth failed: Code not found.</h3>");
+            this.cleanupServer(timeoutId);
+            console.log("[Google OAuth] Authentication failed (no code)");
             reject(new Error("No authorization code returned."));
           }
+        } else {
+          res.writeHead(404, { "Content-Type": "text/plain" });
+          res.end("Not Found");
         }
       });
 
-      this.server.listen(8524, () => {
+      this.server.on("error", (err) => {
+        console.log("[GoogleDriveAdapter] Callback server failed to start");
+        console.log("[GoogleDriveAdapter] Error:", err.code || err.message);
+        this.cleanupServer(timeoutId);
+        console.log("[Google OAuth] Authentication failed (server error)");
+        if (err.code === "EADDRINUSE") {
+          reject(new Error("Google Drive OAuth callback port 8524 is already in use."));
+        } else {
+          reject(err);
+        }
+      });
+
+      console.log("[Google OAuth] Callback server started");
+      this.server.listen(8524, "127.0.0.1", () => {
         const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${this.clientId}&redirect_uri=${encodeURIComponent(this.redirectUri)}&response_type=code&scope=https://www.googleapis.com/auth/drive.file&access_type=offline&prompt=consent`;
-        // Open browser
+        console.log("[Google OAuth] Browser opened");
         shell.openExternal(authUrl).catch(err => {
+          this.cleanupServer(timeoutId);
+          console.log("[Google OAuth] Authentication failed (browser open error)");
           // If shell fails, resolve with sandbox credentials
           secureCredentials.setCredential("GOOGLE_REFRESH_TOKEN", "sandbox_google_refresh_token");
           secureCredentials.setCredential("GOOGLE_ACCESS_TOKEN", "sandbox_google_access_token");
-          if (onTokenCallback) onTokenCallback();
+          if (typeof onTokenCallback === "function") {
+            onTokenCallback();
+          }
           resolve({ success: true, sandbox: true });
         });
       });

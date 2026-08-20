@@ -7,6 +7,33 @@ const OneDriveAdapter = require("./oneDrive.cjs");
 const DropboxAdapter = require("./dropbox.cjs");
 const S3Adapter = require("./s3.cjs");
 const syncEngine = require("./syncEngine.cjs");
+const secureCredentials = require("./secureCredentials.cjs");
+
+// Enforce 10s timeout on all HTTP fetch operations globally
+const originalFetch = global.fetch || globalThis.fetch;
+if (originalFetch) {
+  global.fetch = globalThis.fetch = async function (url, options = {}) {
+    if (options.signal) {
+      return originalFetch(url, options);
+    }
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 10000); // 10 seconds timeout
+    try {
+      const response = await originalFetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      clearTimeout(id);
+      return response;
+    } catch (error) {
+      clearTimeout(id);
+      if (error.name === "AbortError") {
+        throw new Error("Request timed out");
+      }
+      throw error;
+    }
+  };
+}
 
 const appDataDir = "C:\\Users\\suryw\\.gemini\\antigravity";
 const offlineDbFile = path.join(appDataDir, "offline_files.json");
@@ -32,21 +59,37 @@ class NasAdapter {
     if (!this.nasPath) return { success: false, error: "NAS not connected" };
     try {
       const target = path.join(this.nasPath, remotePath);
-      const items = fs.readdirSync(target, { withFileTypes: true });
-      const files = items.map(item => {
+      const items = await fs.promises.readdir(target, { withFileTypes: true });
+      
+      const filesPromises = items.map(async (item) => {
         const fullPath = path.join(target, item.name);
-        const stat = fs.statSync(fullPath);
-        return {
-          id: item.name,
-          name: item.name,
-          path: "/" + path.relative(this.nasPath, fullPath).replace(/\\/g, "/"),
-          relativePath: path.relative(this.nasPath, fullPath).replace(/\\/g, "/"),
-          type: item.isDirectory() ? "Folder" : "File",
-          size: item.isDirectory() ? 0 : stat.size,
-          modified: stat.mtime.toISOString(),
-          provider: "nas"
-        };
+        try {
+          const stat = await fs.promises.stat(fullPath);
+          return {
+            id: item.name,
+            name: item.name,
+            path: "/" + path.relative(this.nasPath, fullPath).replace(/\\/g, "/"),
+            relativePath: path.relative(this.nasPath, fullPath).replace(/\\/g, "/"),
+            type: item.isDirectory() ? "Folder" : "File",
+            size: item.isDirectory() ? 0 : stat.size,
+            modified: stat.mtime.toISOString(),
+            provider: "nas"
+          };
+        } catch (e) {
+          return {
+            id: item.name,
+            name: item.name,
+            path: "/" + path.relative(this.nasPath, fullPath).replace(/\\/g, "/"),
+            relativePath: path.relative(this.nasPath, fullPath).replace(/\\/g, "/"),
+            type: item.isDirectory() ? "Folder" : "File",
+            size: 0,
+            modified: new Date().toISOString(),
+            provider: "nas"
+          };
+        }
       });
+
+      const files = await Promise.all(filesPromises);
       return { success: true, files };
     } catch (e) {
       return { success: false, error: e.message };
@@ -54,49 +97,53 @@ class NasAdapter {
   }
   async upload(localPath, remotePath) {
     const dest = path.join(this.nasPath, remotePath);
-    fs.mkdirSync(path.dirname(dest), { recursive: true });
-    fs.copyFileSync(localPath, dest);
+    await fs.promises.mkdir(path.dirname(dest), { recursive: true });
+    await fs.promises.copyFile(localPath, dest);
     return { success: true };
   }
   async download(remotePath, localPath) {
     const src = path.join(this.nasPath, remotePath);
-    fs.mkdirSync(path.dirname(localPath), { recursive: true });
-    fs.copyFileSync(src, localPath);
+    await fs.promises.mkdir(path.dirname(localPath), { recursive: true });
+    await fs.promises.copyFile(src, localPath);
     return { success: true };
   }
   async delete(remotePath) {
     const src = path.join(this.nasPath, remotePath);
-    if (fs.existsSync(src)) {
-      if (fs.statSync(src).isDirectory()) {
-        fs.rmSync(src, { recursive: true });
+    try {
+      const stat = await fs.promises.stat(src);
+      if (stat.isDirectory()) {
+        await fs.promises.rm(src, { recursive: true });
       } else {
-        fs.unlinkSync(src);
+        await fs.promises.unlink(src);
       }
-    }
+    } catch (e) {}
     return { success: true };
   }
   async rename(remotePath, newName) {
     const src = path.join(this.nasPath, remotePath);
     const dest = path.join(path.dirname(src), newName);
-    fs.renameSync(src, dest);
+    await fs.promises.rename(src, dest);
     return { success: true };
   }
   async createFolder(remotePath, folderName) {
     const dest = path.join(this.nasPath, remotePath, folderName);
-    fs.mkdirSync(dest, { recursive: true });
+    await fs.promises.mkdir(dest, { recursive: true });
     return { success: true };
   }
   async getMetadata(remotePath) {
     const target = path.join(this.nasPath, remotePath);
-    if (!fs.existsSync(target)) return null;
-    const stat = fs.statSync(target);
-    return {
-      name: path.basename(target),
-      path: remotePath,
-      size: stat.size,
-      modified: stat.mtime.toISOString(),
-      type: stat.isDirectory() ? "Folder" : "File"
-    };
+    try {
+      const stat = await fs.promises.stat(target);
+      return {
+        name: path.basename(target),
+        path: remotePath,
+        size: stat.size,
+        modified: stat.mtime.toISOString(),
+        type: stat.isDirectory() ? "Folder" : "File"
+      };
+    } catch (e) {
+      return null;
+    }
   }
 }
 
@@ -134,6 +181,7 @@ function saveOfflineDb(db) {
 
 // Main manager exports
 async function getProviders() {
+  await secureCredentials.initCredentials();
   const list = [];
   for (const id in adapters) {
     const status = await adapters[id].getStatus();
@@ -151,54 +199,63 @@ async function getProviders() {
 }
 
 async function connect(providerId, config) {
+  await secureCredentials.initCredentials();
   const adapter = adapters[providerId];
   if (!adapter) throw new Error("Unknown provider: " + providerId);
   return await adapter.connect(config);
 }
 
 async function disconnect(providerId) {
+  await secureCredentials.initCredentials();
   const adapter = adapters[providerId];
   if (!adapter) throw new Error("Unknown provider: " + providerId);
   return await adapter.disconnect();
 }
 
 async function getStatus(providerId) {
+  await secureCredentials.initCredentials();
   const adapter = adapters[providerId];
   if (!adapter) throw new Error("Unknown provider: " + providerId);
   return await adapter.getStatus();
 }
 
 async function listFiles(providerId, remotePath = "") {
+  await secureCredentials.initCredentials();
   const adapter = adapters[providerId];
   if (!adapter) throw new Error("Unknown provider: " + providerId);
   return await adapter.list(remotePath);
 }
 
 async function uploadFile(providerId, localPath, remotePath) {
+  await secureCredentials.initCredentials();
   const adapter = adapters[providerId];
   if (!adapter) throw new Error("Unknown provider: " + providerId);
   return await adapter.upload(localPath, remotePath);
 }
 
 async function downloadFile(providerId, remotePath, localPath) {
+  await secureCredentials.initCredentials();
   const adapter = adapters[providerId];
   if (!adapter) throw new Error("Unknown provider: " + providerId);
   return await adapter.download(remotePath, localPath);
 }
 
 async function renameFile(providerId, remotePath, newName) {
+  await secureCredentials.initCredentials();
   const adapter = adapters[providerId];
   if (!adapter) throw new Error("Unknown provider: " + providerId);
   return await adapter.rename(remotePath, newName);
 }
 
 async function deleteFile(providerId, remotePath) {
+  await secureCredentials.initCredentials();
   const adapter = adapters[providerId];
   if (!adapter) throw new Error("Unknown provider: " + providerId);
   return await adapter.delete(remotePath);
 }
 
 async function createFolder(providerId, remotePath, folderName) {
+  await secureCredentials.initCredentials();
   const adapter = adapters[providerId];
   if (!adapter) throw new Error("Unknown provider: " + providerId);
   return await adapter.createFolder(remotePath, folderName);
@@ -208,6 +265,7 @@ async function createFolder(providerId, remotePath, folderName) {
 // Sync Engine bindings
 // ----------------------------------------------------------
 async function syncJob(jobId, eventSender) {
+  await secureCredentials.initCredentials();
   const db = syncEngine.loadSyncDb();
   const job = db.syncJobs[jobId];
   if (!job) throw new Error("Sync job not configured.");
@@ -224,6 +282,7 @@ function getConflicts() {
 }
 
 async function resolveConflict(jobId, relativePath, resolution) {
+  await secureCredentials.initCredentials();
   const db = syncEngine.loadSyncDb();
   const conflictIdx = db.conflicts.findIndex(c => c.jobId === jobId && c.relativePath === relativePath);
   if (conflictIdx === -1) return { success: false, error: "Conflict not found" };
@@ -269,6 +328,7 @@ async function resolveConflict(jobId, relativePath, resolution) {
 // Offline Cache Management
 // ----------------------------------------------------------
 async function markOffline(providerId, remotePath) {
+  await secureCredentials.initCredentials();
   const adapter = adapters[providerId];
   if (!adapter) throw new Error("Unknown provider: " + providerId);
 

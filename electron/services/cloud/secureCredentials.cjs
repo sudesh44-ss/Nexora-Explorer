@@ -43,8 +43,102 @@ function decryptString(encryptedText) {
   }
 }
 
-// Load all credentials
-function loadCredentials() {
+let cachedCredentials = null;
+let initPromise = null;
+
+// Async initialization of credentials (decrypt all in a single PowerShell spawn)
+function initCredentials() {
+  if (initPromise) return initPromise;
+
+  const start = Date.now();
+  console.log("[Cloud] [secureCredentials] providers request started (initCredentials)");
+
+  initPromise = new Promise((resolve) => {
+    try {
+      if (!fs.existsSync(credFile)) {
+        cachedCredentials = {};
+        console.log(`[Cloud] [secureCredentials] providers request completed (initCredentials: no file) took ${Date.now() - start}ms`);
+        return resolve(cachedCredentials);
+      }
+      const raw = fs.readFileSync(credFile, "utf8");
+      const db = JSON.parse(raw);
+      
+      const keys = Object.keys(db);
+      if (keys.length === 0) {
+        cachedCredentials = {};
+        console.log(`[Cloud] [secureCredentials] providers request completed (initCredentials: empty file) took ${Date.now() - start}ms`);
+        return resolve(cachedCredentials);
+      }
+
+      // Pack all encrypted strings as a JSON base64 string
+      const encValues = keys.map(k => db[k]);
+      const base64List = Buffer.from(JSON.stringify(encValues), "utf8").toString("base64");
+
+      const script = `
+        $bytes = [System.Convert]::FromBase64String("${base64List}");
+        $json = [System.Text.Encoding]::UTF8.GetString($bytes);
+        $list = ConvertFrom-Json $json;
+        $results = @();
+        foreach ($enc in $list) {
+            if (-not $enc) {
+                $results += "";
+                continue;
+            }
+            try {
+                $sec = ConvertTo-SecureString $enc;
+                $dec = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec));
+                $results += $dec;
+            } catch {
+                $results += "";
+            }
+        }
+        $resBytes = [System.Text.Encoding]::UTF8.GetBytes((ConvertTo-Json $results -Compress));
+        [System.Convert]::ToBase64String($resBytes)
+      `.replace(/\r?\n/g, " ");
+
+      const { execFile } = require("child_process");
+      execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], {
+        windowsHide: true,
+        maxBuffer: 1024 * 1024
+      }, (err, stdout, stderr) => {
+        if (err) {
+          console.error("[Cloud] Async DPAPI decryption failed, falling back to sync:", err, stderr);
+          cachedCredentials = loadCredentialsSync();
+          console.log(`[Cloud] [secureCredentials] providers request completed (initCredentials: sync fallback) took ${Date.now() - start}ms`);
+          return resolve(cachedCredentials);
+        }
+        try {
+          const decJson = Buffer.from(stdout.trim(), "base64").toString("utf8");
+          const decValues = JSON.parse(decJson);
+          cachedCredentials = {};
+          keys.forEach((key, idx) => {
+            cachedCredentials[key] = decValues[idx];
+          });
+          console.log(`[Cloud] [secureCredentials] providers request completed (initCredentials: async success) took ${Date.now() - start}ms`);
+          resolve(cachedCredentials);
+        } catch (e) {
+          console.error("[Cloud] Failed to parse decrypted values, falling back to sync:", e);
+          cachedCredentials = loadCredentialsSync();
+          console.log(`[Cloud] [secureCredentials] providers request completed (initCredentials: sync fallback parse error) took ${Date.now() - start}ms`);
+          resolve(cachedCredentials);
+        }
+      });
+    } catch (e) {
+      console.error("[Cloud] initCredentials error:", e);
+      cachedCredentials = {};
+      resolve(cachedCredentials);
+    }
+  });
+
+  return initPromise;
+}
+
+// Kick off initialization immediately at startup
+initCredentials();
+
+// Load all credentials synchronously
+function loadCredentialsSync() {
+  const start = Date.now();
   try {
     if (!fs.existsSync(credFile)) {
       return {};
@@ -56,9 +150,10 @@ function loadCredentials() {
     for (const key in db) {
       decrypted[key] = decryptString(db[key]);
     }
+    console.log(`[Cloud] [secureCredentials] loadCredentialsSync took ${Date.now() - start}ms`);
     return decrypted;
   } catch (e) {
-    console.error("Failed to load credentials:", e);
+    console.error("[Cloud] Failed to load credentials:", e);
     return {};
   }
 }
@@ -77,23 +172,27 @@ function saveCredentials(credentials) {
     fs.writeFileSync(credFile, JSON.stringify(db, null, 2), "utf8");
     return true;
   } catch (e) {
-    console.error("Failed to save credentials:", e);
+    console.error("[Cloud] Failed to save credentials:", e);
     return false;
   }
 }
 
 function getCredential(key) {
-  const creds = loadCredentials();
+  if (cachedCredentials) {
+    return cachedCredentials[key] || null;
+  }
+  const creds = loadCredentialsSync();
   return creds[key] || null;
 }
 
 function setCredential(key, value) {
-  const creds = loadCredentials();
+  const creds = cachedCredentials || loadCredentialsSync();
   if (value) {
     creds[key] = value;
   } else {
     delete creds[key];
   }
+  cachedCredentials = creds;
   saveCredentials(creds);
 }
 
@@ -105,6 +204,7 @@ module.exports = {
   getCredential,
   setCredential,
   deleteCredential,
-  loadCredentials,
-  saveCredentials
+  loadCredentials: loadCredentialsSync,
+  saveCredentials,
+  initCredentials
 };
