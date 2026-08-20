@@ -156,24 +156,9 @@ function toNumber(value) {
 async function getReliabilityCounters() {
   const script = `
     try {
-      Get-CimInstance \`
-        \`-Namespace root/Microsoft/Windows/Storage \`
-        \`-ClassName MSFT_StorageReliabilityCounter |
-      Select-Object \`
-        \`DeviceId, \`
-        \`Temperature, \`
-        \`TemperatureMax, \`
-        \`Wear, \`
-        \`ReadErrorsTotal, \`
-        \`WriteErrorsTotal, \`
-        \`ReadLatencyMax, \`
-        \`WriteLatencyMax, \`
-        \`PowerOnHours, \`
-        \`StartStopCycleCount, \`
-        \`LoadUnloadCycleCount \`
-      | ConvertTo-Json \`
-        \`-Depth 3 \`
-        \`-Compress
+      Get-CimInstance -Namespace root/Microsoft/Windows/Storage -ClassName MSFT_StorageReliabilityCounter |
+      Select-Object DeviceId, Temperature, TemperatureMax, Wear, ReadErrorsTotal, WriteErrorsTotal, ReadLatencyMax, WriteLatencyMax, PowerOnHours, StartStopCycleCount, LoadUnloadCycleCount |
+      ConvertTo-Json -Depth 3 -Compress
     }
     catch {
       @()
@@ -208,24 +193,7 @@ async function getReliabilityCounters() {
  */
 
 async function getPhysicalDiskHealth() {
-  const script = `
-    Get-CimInstance \`
-      \`-Namespace root/Microsoft/Windows/Storage \`
-      \`-ClassName MSFT_PhysicalDisk |
-    Select-Object \`
-      \`DeviceId, \`
-      \`FriendlyName, \`
-      \`SerialNumber, \`
-      \`MediaType, \`
-      \`BusType, \`
-      \`HealthStatus, \`
-      \`OperationalStatus, \`
-      \`Size, \`
-      \`FirmwareVersion \`
-    | ConvertTo-Json \`
-      \`-Depth 3 \`
-      \`-Compress
-  `;
+  const script = `Get-CimInstance -Namespace root/Microsoft/Windows/Storage -ClassName MSFT_PhysicalDisk | Select-Object DeviceId, FriendlyName, SerialNumber, MediaType, BusType, HealthStatus, OperationalStatus, Size, FirmwareVersion | ConvertTo-Json -Depth 3 -Compress`;
 
   try {
     const output =

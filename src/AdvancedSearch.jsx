@@ -3,6 +3,14 @@ import { useState, useEffect, useRef } from "react";
 import "./AdvancedSearch.css";
 import SearchProgress from "./SearchProgress";
 
+const LIST_SIZES = {
+  1: { rowHeight: "26px", iconSize: "14px", fontSize: "11px" },
+  2: { rowHeight: "30px", iconSize: "16px", fontSize: "12px" },
+  3: { rowHeight: "34px", iconSize: "18px", fontSize: "12px" }, // Default
+  4: { rowHeight: "38px", iconSize: "22px", fontSize: "13px" },
+  5: { rowHeight: "44px", iconSize: "26px", fontSize: "14px" }
+};
+
 const isPhysical = (p) => {
   return p && !p.startsWith("tool:") && !p.startsWith("favorites:") && !p.startsWith("drives:");
 };
@@ -14,7 +22,7 @@ const trace = (message, obj) => {
   }
 };
 
-function AdvancedSearch({ currentPath, onNavigate, onClose, clickBehavior = "double" }) {
+function AdvancedSearch({ currentPath, onNavigate, onClose, clickBehavior = "double", itemSize = 3 }) {
   const [searchText, setSearchText] = useState("");
   const [showFilters, setShowFilters] = useState(true);
   const [activeFilter, setActiveFilter] = useState("All");
@@ -877,7 +885,8 @@ function AdvancedSearch({ currentPath, onNavigate, onClose, clickBehavior = "dou
                       style={{
                         display: "flex",
                         justifyContent: "space-between",
-                        padding: "10px",
+                        padding: `calc((${LIST_SIZES[itemSize].rowHeight} - 16px) / 2) 10px`,
+                        minHeight: LIST_SIZES[itemSize].rowHeight,
                         borderBottom: "1px solid #eee",
                         cursor: "pointer",
                         borderRadius: "5px",
@@ -897,24 +906,29 @@ function AdvancedSearch({ currentPath, onNavigate, onClose, clickBehavior = "dou
                       }}
                     >
                       <div style={{ display: "flex", flexDirection: "column" }}>
-                        <span style={{ fontWeight: "500", color: "#333" }}>
-                          {item.isDirectory ? "📁" : "📄"} {item.name}
-                        </span>
-                        <span style={{ fontSize: "12px", color: "#888" }}>
+                        <div style={{ display: "flex", alignItems: "center" }}>
+                          <span style={{ fontSize: LIST_SIZES[itemSize].iconSize, marginRight: "8px", lineHeight: "1" }}>
+                            {item.isDirectory ? "📁" : "📄"}
+                          </span>
+                          <span style={{ fontWeight: "500", color: "#333", fontSize: LIST_SIZES[itemSize].fontSize }}>
+                            {item.name}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: `calc(${LIST_SIZES[itemSize].fontSize} - 1px)`, color: "#888", marginTop: "2px" }}>
                           {item.path}
                         </span>
                         {item.contentLine && (
-                          <span style={{ fontSize: "12px", color: "#555", fontStyle: "italic", marginTop: "3px" }}>
+                          <span style={{ fontSize: `calc(${LIST_SIZES[itemSize].fontSize} - 1px)`, color: "#555", fontStyle: "italic", marginTop: "3px" }}>
                             🔍 Match: {item.contentLine} ({item.contentCount} matches)
                           </span>
                         )}
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "center" }}>
-                        <span style={{ fontSize: "12px", color: "#666" }}>
+                        <span style={{ fontSize: `calc(${LIST_SIZES[itemSize].fontSize} - 1px)`, color: "#666" }}>
                           {item.isDirectory ? "Folder" : "File"}
                         </span>
                         {item.size !== null && (
-                          <span style={{ fontSize: "11px", color: "#888", marginTop: "2px" }}>
+                          <span style={{ fontSize: `calc(${LIST_SIZES[itemSize].fontSize} - 2px)`, color: "#888", marginTop: "2px" }}>
                             {(item.size / 1024).toFixed(1)} KB
                           </span>
                         )}

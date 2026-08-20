@@ -428,22 +428,7 @@ async function getDriveCapacity(
     };
   }
 
-  const script = `
-    $drive = Get-CimInstance Win32_LogicalDisk \`
-      \`-Filter "DeviceID='${normalizedDrive}'" |
-
-    Select-Object \`
-      \`DeviceID, \`
-      \`VolumeName, \`
-      \`FileSystem, \`
-      \`Size, \`
-      \`FreeSpace, \`
-      \`DriveType \`
-
-    $drive | ConvertTo-Json \`
-      \`-Depth 3 \`
-      \`-Compress
-  `;
+  const script = `Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='${normalizedDrive}'" | Select-Object DeviceID, VolumeName, FileSystem, Size, FreeSpace, DriveType | ConvertTo-Json -Depth 3 -Compress`;
 
   try {
     const output =
@@ -523,19 +508,7 @@ async function getDriveCapacity(
  */
 
 async function getAllDriveCapacities() {
-  const script = `
-    Get-CimInstance Win32_LogicalDisk |
-    Select-Object \`
-      \`DeviceID, \`
-      \`VolumeName, \`
-      \`FileSystem, \`
-      \`Size, \`
-      \`FreeSpace, \`
-      \`DriveType \`
-    | ConvertTo-Json \`
-      \`-Depth 3 \`
-      \`-Compress
-  `;
+  const script = `Get-CimInstance Win32_LogicalDisk | Select-Object DeviceID, VolumeName, FileSystem, Size, FreeSpace, DriveType | ConvertTo-Json -Depth 3 -Compress`;
 
   try {
     const output =

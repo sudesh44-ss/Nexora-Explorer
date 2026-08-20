@@ -68,9 +68,14 @@ function getFileIcon(name) {
   return null;
 }
 
-function getItemIcon(item, isGrid = false) {
+function getItemIcon(item, isGrid = false, customSize = null) {
+  const sizeValue = customSize || (isGrid ? "48px" : "18px");
+  const fallbackFontSize = customSize 
+    ? (parseFloat(customSize) * 0.75) + "px" 
+    : (isGrid ? "36px" : "16px");
+
   if (!item)
-    return <span style={{ fontSize: isGrid ? "36px" : "16px" }}>📄</span>;
+    return <span style={{ fontSize: fallbackFontSize }}>📄</span>;
   if (item.isDirectory) {
     const iconSrc = getFolderIcon(item.name);
     return (
@@ -78,8 +83,8 @@ function getItemIcon(item, isGrid = false) {
         src={iconSrc}
         alt="folder"
         style={{
-          width: isGrid ? "48px" : "18px",
-          height: isGrid ? "48px" : "18px",
+          width: sizeValue,
+          height: sizeValue,
           objectFit: "contain",
           verticalAlign: "middle",
         }}
@@ -94,8 +99,8 @@ function getItemIcon(item, isGrid = false) {
         src={fileIconSrc}
         alt="file"
         style={{
-          width: isGrid ? "48px" : "18px",
-          height: isGrid ? "48px" : "18px",
+          width: sizeValue,
+          height: sizeValue,
           objectFit: "contain",
           verticalAlign: "middle",
         }}
@@ -103,7 +108,7 @@ function getItemIcon(item, isGrid = false) {
     );
   }
 
-  return <span style={{ fontSize: isGrid ? "36px" : "16px" }}>📄</span>;
+  return <span style={{ fontSize: fallbackFontSize }}>📄</span>;
 }
 
 // Import Advanced Tools
@@ -118,6 +123,228 @@ import StorageAnalytics from "./StorageAnalytics";
 import NetworkFeatures from "./NetworkFeatures";
 import CloudIntegration from "./CloudIntegration";
 import DeveloperFeatures from "./DeveloperFeatures";
+
+const GRID_SIZES = {
+  1: { cardWidth: "80px", iconSize: "32px", fontSize: "11px" },
+  2: { cardWidth: "100px", iconSize: "40px", fontSize: "12px" },
+  3: { cardWidth: "120px", iconSize: "48px", fontSize: "12px" }, // Default
+  4: { cardWidth: "150px", iconSize: "64px", fontSize: "13px" },
+  5: { cardWidth: "180px", iconSize: "80px", fontSize: "14px" }
+};
+
+const LIST_SIZES = {
+  1: { rowHeight: "26px", iconSize: "14px", fontSize: "11px" },
+  2: { rowHeight: "30px", iconSize: "16px", fontSize: "12px" },
+  3: { rowHeight: "34px", iconSize: "18px", fontSize: "12px" }, // Default
+  4: { rowHeight: "38px", iconSize: "22px", fontSize: "13px" },
+  5: { rowHeight: "44px", iconSize: "26px", fontSize: "14px" }
+};
+
+const HOME_CARD_SIZES = {
+  1: { padding: "10px", iconSize: "32px", fontSize: "12px", width: "90px" },
+  2: { padding: "15px", iconSize: "40px", fontSize: "13px", width: "110px" },
+  3: { padding: "20px", iconSize: "48px", fontSize: "15px", width: "130px" }, // Default
+  4: { padding: "25px", iconSize: "60px", fontSize: "17px", width: "150px" },
+  5: { padding: "30px", iconSize: "72px", fontSize: "19px", width: "180px" }
+};
+
+const HOME_DRIVE_SIZES = {
+  1: { padding: "8px", iconSize: "24px", fontSize: "12px", width: "180px" },
+  2: { padding: "12px", iconSize: "28px", fontSize: "13px", width: "210px" },
+  3: { padding: "15px", iconSize: "32px", fontSize: "15px", width: "240px" }, // Default
+  4: { padding: "18px", iconSize: "40px", fontSize: "17px", width: "280px" },
+  5: { padding: "22px", iconSize: "48px", fontSize: "19px", width: "320px" }
+};
+
+function DriveStorageInfo({ capacity, storageLoading, viewMode, itemSize }) {
+  const isFailed =
+    !capacity ||
+    capacity.success === false ||
+    typeof capacity.free !== "number" ||
+    typeof capacity.total !== "number";
+
+  if (storageLoading && !capacity) {
+    if (viewMode === "list") {
+      return (
+        <>
+          <span style={{ fontSize: LIST_SIZES[itemSize].fontSize }}>Free: Loading...</span>
+          <span style={{ fontSize: LIST_SIZES[itemSize].fontSize }}>Total: Loading...</span>
+        </>
+      );
+    }
+    if (viewMode === "details") {
+      return (
+        <>
+          <td className="details-cell size-cell" style={{ fontSize: LIST_SIZES[itemSize].fontSize }}>
+            Free: Loading...
+          </td>
+          <td className="details-cell capacity-cell" style={{ fontSize: LIST_SIZES[itemSize].fontSize }}>
+            Total: Loading...
+          </td>
+        </>
+      );
+    }
+    if (viewMode === "home-grid") {
+      return (
+        <div style={{ fontSize: `calc(${HOME_DRIVE_SIZES[itemSize].fontSize} - 3px)`, color: "var(--color-text-secondary)", marginTop: "4px" }}>
+          Free: Loading... / Total: Loading...
+        </div>
+      );
+    }
+    if (viewMode === "grid" && itemSize <= 2) {
+      return (
+        <span style={{ fontSize: "9px", color: "var(--color-text-secondary)" }}>
+          Loading storage...
+        </span>
+      );
+    }
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+        <span style={{ fontSize: "9px", color: "var(--color-text-secondary)" }}>
+          Free: Loading...
+        </span>
+        <span style={{ fontSize: "9px", color: "var(--color-text-secondary)" }}>
+          Total: Loading...
+        </span>
+      </div>
+    );
+  }
+
+  if (isFailed) {
+    if (viewMode === "list") {
+      return (
+        <>
+          <span style={{ fontSize: LIST_SIZES[itemSize].fontSize, color: "#ef4444" }}>Storage unavailable</span>
+          <span style={{ fontSize: LIST_SIZES[itemSize].fontSize, color: "#ef4444" }}>Storage unavailable</span>
+        </>
+      );
+    }
+    if (viewMode === "details") {
+      return (
+        <>
+          <td className="details-cell size-cell" style={{ fontSize: LIST_SIZES[itemSize].fontSize, color: "#ef4444" }}>
+            Storage unavailable
+          </td>
+          <td className="details-cell capacity-cell" style={{ fontSize: LIST_SIZES[itemSize].fontSize, color: "#ef4444" }}>
+            Storage unavailable
+          </td>
+        </>
+      );
+    }
+    if (viewMode === "home-grid") {
+      return (
+        <div style={{ fontSize: `calc(${HOME_DRIVE_SIZES[itemSize].fontSize} - 3px)`, color: "#ef4444", marginTop: "4px" }}>
+          Storage unavailable
+        </div>
+      );
+    }
+    return (
+      <span style={{ fontSize: "9px", color: "#ef4444", fontWeight: "500" }}>
+        Storage unavailable
+      </span>
+    );
+  }
+
+  const free = typeof capacity.free === "number" ? capacity.freeFormatted : "Storage unavailable";
+  const total = typeof capacity.total === "number" ? capacity.totalFormatted : "Storage unavailable";
+  const usedPercentage = typeof capacity.usedPercentage === "number"
+    ? Math.max(0, Math.min(100, capacity.usedPercentage))
+    : 0;
+
+  if (viewMode === "grid") {
+    if (itemSize <= 2) {
+      return (
+        <div style={{ width: "95%", marginTop: "4px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div style={{ width: "100%", height: "4px", backgroundColor: "rgba(255,255,255,0.1)", borderRadius: "2px", overflow: "hidden", marginBottom: "2px" }}>
+            <div style={{ width: `${usedPercentage}%`, height: "100%", backgroundColor: "var(--color-accent)" }} />
+          </div>
+          <span style={{ fontSize: "9px", color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>
+            {free} free / {total}
+          </span>
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ width: "90%", marginTop: "4px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <span style={{ fontSize: "10px", color: "var(--color-text-secondary)", display: "block" }}>
+          Free: {free}
+        </span>
+        <span style={{ fontSize: "10px", color: "var(--color-text-secondary)", display: "block", marginBottom: "4px" }}>
+          Total: {total}
+        </span>
+        <div style={{ width: "100%", height: "6px", backgroundColor: "rgba(255,255,255,0.1)", borderRadius: "3px", overflow: "hidden", display: "flex", alignItems: "center" }}>
+          <div style={{ width: `${usedPercentage}%`, height: "100%", backgroundColor: "var(--color-accent)" }} />
+        </div>
+        <span style={{ fontSize: "9px", color: "var(--color-text-secondary)", display: "block", marginTop: "2px" }}>
+          {usedPercentage}% used
+        </span>
+      </div>
+    );
+  }
+
+  if (viewMode === "home-grid") {
+    return (
+      <div
+        style={{
+          fontSize: `calc(${HOME_DRIVE_SIZES[itemSize].fontSize} - 3px)`,
+          color: "var(--color-text-secondary)",
+          marginTop: "4px",
+          width: "100%"
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginBottom: "3px",
+          }}
+        >
+          <span>
+            {free} free of {total}
+          </span>
+        </div>
+        <div
+          style={{
+            width: "100%",
+            height: "6px",
+            backgroundColor: "rgba(255,255,255,0.1)",
+            borderRadius: "3px",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              width: `${usedPercentage}%`,
+              height: "100%",
+              backgroundColor: "var(--color-accent)",
+            }}
+          ></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (viewMode === "list") {
+    return (
+      <>
+        <span style={{ fontSize: LIST_SIZES[itemSize].fontSize }}>Free: {free}</span>
+        <span style={{ fontSize: LIST_SIZES[itemSize].fontSize }}>Total: {total}</span>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <td className="details-cell size-cell" style={{ fontSize: LIST_SIZES[itemSize].fontSize }}>
+        Free: {free}
+      </td>
+      <td className="details-cell capacity-cell" style={{ fontSize: LIST_SIZES[itemSize].fontSize }}>
+        Total: {total}
+      </td>
+    </>
+  );
+}
 
 function App() {
   // =============================
@@ -372,6 +599,14 @@ function App() {
     setSelectedHomePath(null);
     setSelectedSidebarPath(null);
   }
+
+  const [itemSize, setItemSize] = useState(() => {
+    try {
+      return parseInt(localStorage.getItem("fileExplorerItemSize") || "3", 10);
+    } catch {
+      return 3;
+    }
+  });
 
   // ============================================================
   // Storage Management
@@ -1085,6 +1320,14 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!currentPath) {
+      loadDrives();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadDriveInventory();
+    }
+  }, [currentPath]);
+
   // ============================================================
   // Favorites Persistence
   // ============================================================
@@ -1129,6 +1372,28 @@ function App() {
   useEffect(() => {
     localStorage.setItem("fileExplorerClickBehavior", clickBehavior);
   }, [clickBehavior]);
+
+  useEffect(() => {
+    localStorage.setItem("fileExplorerItemSize", String(itemSize));
+  }, [itemSize]);
+
+  useEffect(() => {
+    const handleGlobalWheel = (e) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        if (e.deltaY < 0) {
+          setItemSize((prev) => Math.min(5, prev + 1));
+        } else if (e.deltaY > 0) {
+          setItemSize((prev) => Math.max(1, prev - 1));
+        }
+      }
+    };
+
+    window.addEventListener("wheel", handleGlobalWheel, { passive: false });
+    return () => {
+      window.removeEventListener("wheel", handleGlobalWheel);
+    };
+  }, []);
 
 
 
@@ -1360,6 +1625,7 @@ function App() {
 
     if (!currentPath) {
       await loadDrives();
+      await loadDriveInventory();
       return;
     }
 
@@ -3861,6 +4127,29 @@ function App() {
                       <span className="custom-dropdown-check">✓</span>
                     )}
                   </div>
+                  <div className="custom-dropdown-divider" />
+                  <div className="custom-dropdown-header" style={{ padding: "6px 10px 4px 10px", fontSize: "11px", fontWeight: "bold", color: "#6b7280" }}>
+                    Item Size
+                  </div>
+                  {[
+                    ["Small", 1],
+                    ["Medium", 2],
+                    ["Large", 3],
+                    ["Extra Large", 4],
+                    ["Huge", 5]
+                  ].map(([label, lvl]) => (
+                    <div
+                      key={lvl}
+                      className="custom-dropdown-item"
+                      onClick={() => {
+                        setItemSize(lvl);
+                        setActiveDropdown(null);
+                      }}
+                    >
+                      <span style={{ marginRight: "8px" }}>{itemSize === lvl ? "🔘" : "⚪"}</span>
+                      <span>{label}</span>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -4662,6 +4951,7 @@ function App() {
               onNavigate={(path) => openFolder(path)}
               onClose={closeToolView}
               clickBehavior={clickBehavior}
+              itemSize={itemSize}
             />
           )}
           {currentPath === "tool:archive" && (
@@ -4780,7 +5070,7 @@ function App() {
                   style={{
                     display: "grid",
                     gridTemplateColumns:
-                      "repeat(auto-fill, minmax(180px, 1fr))",
+                      `repeat(auto-fill, minmax(${HOME_CARD_SIZES[itemSize].width}, 1fr))`,
                     gap: "15px",
                   }}
                 >
@@ -4827,7 +5117,7 @@ function App() {
                           }
                         }}
                         style={{
-                          padding: "20px",
+                          padding: HOME_CARD_SIZES[itemSize].padding,
                           backgroundColor: selectedHomePath === folder.path ? "rgba(0, 120, 212, 0.15)" : "#050d1b",
                           border: selectedHomePath === folder.path ? "2px solid #0078d4" : "1px solid var(--color-border)",
                           borderRadius: "8px",
@@ -4855,14 +5145,14 @@ function App() {
                           src={folder.icon}
                           alt={folder.name}
                           style={{
-                            width: "48px",
-                            height: "48px",
+                            width: HOME_CARD_SIZES[itemSize].iconSize,
+                            height: HOME_CARD_SIZES[itemSize].iconSize,
                             objectFit: "contain",
                           }}
                         />
                         <strong
                           style={{
-                            fontSize: "15px",
+                            fontSize: HOME_CARD_SIZES[itemSize].fontSize,
                             color: "var(--color-text-primary)",
                           }}
                         >
@@ -4880,7 +5170,7 @@ function App() {
                   style={{
                     display: "grid",
                     gridTemplateColumns:
-                      "repeat(auto-fill, minmax(240px, 1fr))",
+                      `repeat(auto-fill, minmax(${HOME_DRIVE_SIZES[itemSize].width}, 1fr))`,
                     gap: "15px",
                   }}
                 >
@@ -4903,7 +5193,7 @@ function App() {
                           }
                         }}
                         style={{
-                          padding: "15px",
+                          padding: HOME_DRIVE_SIZES[itemSize].padding,
                           backgroundColor: selectedHomePath === drive.path ? "rgba(0, 120, 212, 0.15)" : undefined,
                           border: selectedHomePath === drive.path ? "2px solid #0078d4" : undefined,
                           borderRadius: "8px",
@@ -4913,52 +5203,19 @@ function App() {
                           alignItems: "center",
                         }}
                       >
-                        <div style={{ fontSize: "32px" }}>💾</div>
+                        <div style={{ fontSize: HOME_DRIVE_SIZES[itemSize].iconSize }}>💾</div>
                         <div className="drive-info" style={{ flex: 1 }}>
                           <strong
-                            style={{ display: "block", fontSize: "15px" }}
+                            style={{ display: "block", fontSize: HOME_DRIVE_SIZES[itemSize].fontSize }}
                           >
                             {drive.name}
                           </strong>
-                          {capacity && (
-                            <div
-                              style={{
-                                fontSize: "12px",
-                                color: "var(--color-text-secondary)",
-                                marginTop: "4px",
-                              }}
-                            >
-                              <div
-                                style={{
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                  marginBottom: "3px",
-                                }}
-                              >
-                                <span>
-                                  {capacity.freeFormatted} free of{" "}
-                                  {capacity.totalFormatted}
-                                </span>
-                              </div>
-                              <div
-                                style={{
-                                  width: "100%",
-                                  height: "6px",
-                                  backgroundColor: "rgba(255,255,255,0.1)",
-                                  borderRadius: "3px",
-                                  overflow: "hidden",
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    width: `${capacity.usedPercentage}%`,
-                                    height: "100%",
-                                    backgroundColor: "var(--color-accent)",
-                                  }}
-                                ></div>
-                              </div>
-                            </div>
-                          )}
+                          <DriveStorageInfo
+                            capacity={capacity}
+                            storageLoading={storageLoading}
+                            viewMode="home-grid"
+                            itemSize={itemSize}
+                          />
                         </div>
                       </div>
                     );
@@ -5199,57 +5456,162 @@ function App() {
               DRIVES
           ================================================== */}
           {!currentPath && (
-            <section>
+            <section style={{ padding: "16px" }}>
               <h3>Drives</h3>
 
-              <div className="drive-grid">
-                {drives.map((drive) => {
-                  const capacity = getDriveCapacityInfo(drive.path);
-
-                  return (
-                    <div
-                      className={`drive ${selectedHomePath === drive.path ? "selected" : ""}`}
-                      key={drive.path}
-                      onClick={() => {
-                        if (clickBehavior === "single") {
-                          openFolder(drive.path);
-                        } else {
-                          setSelectedHomePath(drive.path);
-                        }
-                      }}
-                      onDoubleClick={() => {
-                        if (clickBehavior === "double") {
-                          openFolder(drive.path);
-                        }
-                      }}
-                      style={{
-                        backgroundColor: selectedHomePath === drive.path ? "rgba(0, 120, 212, 0.15)" : undefined,
-                        border: selectedHomePath === drive.path ? "2px solid #0078d4" : undefined,
-                      }}
-                    >
-                      <div className="drive-icon">💾</div>
-
-                      <div className="drive-info">
-                        <strong>{drive.name}</strong>
-
-                        {capacity && (
-                          <>
-                            <div>Used: {capacity.usedFormatted}</div>
-
-                            <div>Free: {capacity.freeFormatted}</div>
-
-                            <div>Total: {capacity.totalFormatted}</div>
-
-                            <div>{capacity.usedPercentage}% used</div>
-                          </>
-                        )}
-
-                        <p>{drive.path}</p>
+              {viewMode === "grid" && (
+                <div className="file-grid" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${GRID_SIZES[itemSize].cardWidth}, 1fr))`, gap: "15px" }}>
+                  {drives.map((drive) => {
+                    const capacity = getDriveCapacityInfo(drive.path);
+                    return (
+                      <div
+                        className={`file-item ${selectedHomePath === drive.path ? "selected" : ""}`}
+                        key={drive.path}
+                        onClick={() => {
+                          if (clickBehavior === "single") {
+                            openFolder(drive.path);
+                          } else {
+                            setSelectedHomePath(drive.path);
+                          }
+                        }}
+                        onDoubleClick={() => {
+                          if (clickBehavior === "double") {
+                            openFolder(drive.path);
+                          }
+                        }}
+                        style={{
+                          width: GRID_SIZES[itemSize].cardWidth,
+                        }}
+                      >
+                        <div className="file-icon" style={{ width: GRID_SIZES[itemSize].iconSize, height: GRID_SIZES[itemSize].iconSize, fontSize: `calc(${GRID_SIZES[itemSize].iconSize} * 0.75)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          💾
+                        </div>
+                        <span style={{ fontSize: GRID_SIZES[itemSize].fontSize, fontWeight: "bold", textAlign: "center", display: "block" }}>
+                          {drive.name}
+                        </span>
+                        <span style={{ fontSize: `calc(${GRID_SIZES[itemSize].fontSize} - 2px)`, color: "var(--color-text-secondary)", textAlign: "center", display: "block" }}>
+                          {drive.path}
+                        </span>
+                        <DriveStorageInfo
+                          capacity={capacity}
+                          storageLoading={storageLoading}
+                          viewMode="grid"
+                          itemSize={itemSize}
+                        />
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {viewMode === "list" && (
+                <div className="file-list">
+                  <div className="file-list-header">
+                    <span>Name</span>
+                    <span>Path</span>
+                    <span>Free Space</span>
+                    <span>Total Capacity</span>
+                  </div>
+                  {drives.map((drive) => {
+                    const capacity = getDriveCapacityInfo(drive.path);
+                    return (
+                      <div
+                        className={`file-row ${selectedHomePath === drive.path ? "selected" : ""}`}
+                        key={drive.path}
+                        onClick={() => {
+                          if (clickBehavior === "single") {
+                            openFolder(drive.path);
+                          } else {
+                            setSelectedHomePath(drive.path);
+                          }
+                        }}
+                        onDoubleClick={() => {
+                          if (clickBehavior === "double") {
+                            openFolder(drive.path);
+                          }
+                        }}
+                        style={{
+                          height: LIST_SIZES[itemSize].rowHeight,
+                          fontSize: LIST_SIZES[itemSize].fontSize,
+                          lineHeight: LIST_SIZES[itemSize].rowHeight,
+                        }}
+                      >
+                        <span className="file-row-name" style={{ fontSize: LIST_SIZES[itemSize].fontSize }}>
+                          <span style={{ fontSize: LIST_SIZES[itemSize].iconSize, marginRight: "8px" }}>💾</span>
+                          {drive.name}
+                        </span>
+                        <span style={{ fontSize: LIST_SIZES[itemSize].fontSize }}>{drive.path}</span>
+                        <DriveStorageInfo
+                          capacity={capacity}
+                          storageLoading={storageLoading}
+                          viewMode="list"
+                          itemSize={itemSize}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {viewMode === "details" && (
+                <div className="file-details-table-container">
+                  <table className="file-details-table">
+                    <thead>
+                      <tr className="details-header-row">
+                        <th className="details-header-cell name-col">Name</th>
+                        <th className="details-header-cell path-col" style={{ padding: "12px 15px", color: "var(--color-text-secondary)" }}>Path</th>
+                        <th className="details-header-cell type-col">Type</th>
+                        <th className="details-header-cell size-col">Free Space</th>
+                        <th className="details-header-cell capacity-col" style={{ padding: "12px 15px", color: "var(--color-text-secondary)" }}>Total Capacity</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {drives.map((drive) => {
+                        const capacity = getDriveCapacityInfo(drive.path);
+                        return (
+                          <tr
+                            key={drive.path}
+                            onClick={() => {
+                              if (clickBehavior === "single") {
+                                openFolder(drive.path);
+                              } else {
+                                setSelectedHomePath(drive.path);
+                              }
+                            }}
+                            onDoubleClick={() => {
+                              if (clickBehavior === "double") {
+                                openFolder(drive.path);
+                              }
+                            }}
+                            className={`details-row ${selectedHomePath === drive.path ? "selected" : ""}`}
+                            style={{
+                              height: LIST_SIZES[itemSize].rowHeight,
+                              fontSize: LIST_SIZES[itemSize].fontSize,
+                            }}
+                          >
+                            <td className="details-cell name-cell" style={{ fontSize: LIST_SIZES[itemSize].fontSize }}>
+                              <span style={{ fontSize: LIST_SIZES[itemSize].iconSize, marginRight: "8px" }}>💾</span>
+                              {drive.name}
+                            </td>
+                            <td className="details-cell path-cell" style={{ fontSize: LIST_SIZES[itemSize].fontSize }}>
+                              {drive.path}
+                            </td>
+                            <td className="details-cell type-cell" style={{ fontSize: LIST_SIZES[itemSize].fontSize }}>
+                              Local Disk
+                            </td>
+                            <DriveStorageInfo
+                              capacity={capacity}
+                              storageLoading={storageLoading}
+                              viewMode="details"
+                              itemSize={itemSize}
+                            />
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </section>
           )}
 
@@ -5276,7 +5638,7 @@ function App() {
               <section>
                 <h3>Files & Folders</h3>
 
-                <div className="file-grid">
+                <div className="file-grid" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${GRID_SIZES[itemSize].cardWidth}, 1fr))` }}>
                   {sortedItems.map((item, index) => {
                     const isSelected = selectedPaths.has(item.path);
                     const isDragOver = dragOverPath === item.path;
@@ -5313,12 +5675,15 @@ function App() {
                           event.stopPropagation();
                           handleContextMenu(event, item);
                         }}
+                        style={{
+                          width: GRID_SIZES[itemSize].cardWidth,
+                        }}
                       >
-                        <div className="file-icon">
-                          {getItemIcon(item, true)}
+                        <div className="file-icon" style={{ width: GRID_SIZES[itemSize].iconSize, height: GRID_SIZES[itemSize].iconSize }}>
+                          {getItemIcon(item, true, GRID_SIZES[itemSize].iconSize)}
                         </div>
 
-                        <span>{displayItemName(item)}</span>
+                        <span style={{ fontSize: GRID_SIZES[itemSize].fontSize }}>{displayItemName(item)}</span>
                       </div>
                     );
                   })}
@@ -5402,16 +5767,21 @@ function App() {
                           event.stopPropagation();
                           handleContextMenu(event, item);
                         }}
+                        style={{
+                          height: LIST_SIZES[itemSize].rowHeight,
+                          fontSize: LIST_SIZES[itemSize].fontSize,
+                          lineHeight: LIST_SIZES[itemSize].rowHeight,
+                        }}
                       >
-                        <span className="file-row-name">
-                          {getItemIcon(item, false)} {displayItemName(item)}
+                        <span className="file-row-name" style={{ fontSize: LIST_SIZES[itemSize].fontSize }}>
+                          {getItemIcon(item, false, LIST_SIZES[itemSize].iconSize)} {displayItemName(item)}
                         </span>
 
-                        <span>{formatDate(item.modified)}</span>
+                        <span style={{ fontSize: LIST_SIZES[itemSize].fontSize }}>{formatDate(item.modified)}</span>
 
-                        <span>{fileTypeLabel(item)}</span>
+                        <span style={{ fontSize: LIST_SIZES[itemSize].fontSize }}>{fileTypeLabel(item)}</span>
 
-                        <span>
+                        <span style={{ fontSize: LIST_SIZES[itemSize].fontSize }}>
                           {item.isDirectory ? "" : formatSize(item.size)}
                         </span>
                       </div>
@@ -5493,18 +5863,22 @@ function App() {
                               handleContextMenu(event, item);
                             }}
                             className={`details-row ${isSelected ? "selected" : ""}`}
+                            style={{
+                              height: LIST_SIZES[itemSize].rowHeight,
+                              fontSize: LIST_SIZES[itemSize].fontSize,
+                            }}
                           >
-                            <td className="details-cell name-cell">
-                              {getItemIcon(item, false)}
-                              <span>{displayItemName(item)}</span>
+                            <td className="details-cell name-cell" style={{ fontSize: LIST_SIZES[itemSize].fontSize }}>
+                              {getItemIcon(item, false, LIST_SIZES[itemSize].iconSize)}
+                              <span style={{ fontSize: LIST_SIZES[itemSize].fontSize }}>{displayItemName(item)}</span>
                             </td>
-                            <td className="details-cell date-cell">
+                            <td className="details-cell date-cell" style={{ fontSize: LIST_SIZES[itemSize].fontSize }}>
                               {formatDate(item.modified)}
                             </td>
-                            <td className="details-cell type-cell">
+                            <td className="details-cell type-cell" style={{ fontSize: LIST_SIZES[itemSize].fontSize }}>
                               {fileTypeLabel(item)}
                             </td>
-                            <td className="details-cell size-cell">
+                            <td className="details-cell size-cell" style={{ fontSize: LIST_SIZES[itemSize].fontSize }}>
                               {item.isDirectory ? "" : formatSize(item.size)}
                             </td>
                           </tr>
