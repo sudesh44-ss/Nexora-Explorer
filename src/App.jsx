@@ -355,6 +355,24 @@ function App() {
     }
   });
 
+  const [clickBehavior, setClickBehavior] = useState(() => {
+    try {
+      return localStorage.getItem("fileExplorerClickBehavior") || "double";
+    } catch {
+      return "double";
+    }
+  });
+
+  const [selectedHomePath, setSelectedHomePath] = useState(null);
+  const [selectedSidebarPath, setSelectedSidebarPath] = useState(null);
+
+  const [lastPath, setLastPath] = useState(currentPath);
+  if (currentPath !== lastPath) {
+    setLastPath(currentPath);
+    setSelectedHomePath(null);
+    setSelectedSidebarPath(null);
+  }
+
   // ============================================================
   // Storage Management
   // ============================================================
@@ -1107,6 +1125,12 @@ function App() {
       JSON.stringify(showFileExtensions),
     );
   }, [showFileExtensions]);
+
+  useEffect(() => {
+    localStorage.setItem("fileExplorerClickBehavior", clickBehavior);
+  }, [clickBehavior]);
+
+
 
   // ============================================================
   // Keyboard Listener
@@ -1931,6 +1955,15 @@ function App() {
   function handleItemClick(event, item, index) {
     event.stopPropagation();
     closeContextMenu();
+
+    if (clickBehavior === "single") {
+      if (item.isDirectory) {
+        openFolder(item.path);
+      } else {
+        openSelectedItemByPath(item);
+      }
+      return;
+    }
 
     const isCtrl = event.ctrlKey || event.metaKey;
 
@@ -3745,6 +3778,32 @@ function App() {
                       <span>{label}</span>
                     </div>
                   ))}
+                  <div className="custom-dropdown-divider" />
+                  <div className="custom-dropdown-header" style={{ padding: "6px 10px 4px 10px", fontSize: "11px", fontWeight: "bold", color: "#6b7280" }}>
+                    Click Behavior
+                  </div>
+                  <div
+                    className="custom-dropdown-item"
+                    role="menuitem"
+                    onClick={() => {
+                      setClickBehavior("single");
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span style={{ marginRight: "8px" }}>{clickBehavior === "single" ? "🔘" : "⚪"}</span>
+                    <span>Single-click to open</span>
+                  </div>
+                  <div
+                    className="custom-dropdown-item"
+                    role="menuitem"
+                    onClick={() => {
+                      setClickBehavior("double");
+                      setActiveDropdown(null);
+                    }}
+                  >
+                    <span style={{ marginRight: "8px" }}>{clickBehavior === "double" ? "🔘" : "⚪"}</span>
+                    <span>Double-click to open</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -4275,10 +4334,20 @@ function App() {
           <div className="sidebar-title">Quick Access</div>
 
           <div
-            className={`sidebar-item ${currentPath === "Home" ? "active" : ""}`}
+            className={`sidebar-item ${currentPath === "Home" ? "active" : ""} ${selectedSidebarPath === "Home" ? "selected" : ""}`}
             onClick={() => {
-              setCurrentPath("Home");
-              setAddressPath("Home");
+              if (clickBehavior === "single") {
+                setCurrentPath("Home");
+                setAddressPath("Home");
+              } else {
+                setSelectedSidebarPath("Home");
+              }
+            }}
+            onDoubleClick={() => {
+              if (clickBehavior === "double") {
+                setCurrentPath("Home");
+                setAddressPath("Home");
+              }
             }}
           >
             <span className="sidebar-item-icon">🏠</span> Home
@@ -4289,8 +4358,19 @@ function App() {
           {favorites.map((favorite) => (
             <div
               key={favorite}
-              className="sidebar-item favorite-item"
-              onClick={() => openFavorite(favorite)}
+              className={`sidebar-item favorite-item ${selectedSidebarPath === favorite ? "selected" : ""}`}
+              onClick={() => {
+                if (clickBehavior === "single") {
+                  openFavorite(favorite);
+                } else {
+                  setSelectedSidebarPath(favorite);
+                }
+              }}
+              onDoubleClick={() => {
+                if (clickBehavior === "double") {
+                  openFavorite(favorite);
+                }
+              }}
               title={favorite}
             >
               <span className="sidebar-item-icon">📌</span>{" "}
@@ -4310,45 +4390,115 @@ function App() {
           ))}
 
           <div
-            className={`sidebar-item ${systemPaths && currentPath === systemPaths.downloads ? "active" : ""}`}
-            onClick={() => systemPaths && openFolder(systemPaths.downloads)}
+            className={`sidebar-item ${systemPaths && currentPath === systemPaths.downloads ? "active" : ""} ${selectedSidebarPath === "downloads" ? "selected" : ""}`}
+            onClick={() => {
+              if (!systemPaths) return;
+              if (clickBehavior === "single") {
+                openFolder(systemPaths.downloads);
+              } else {
+                setSelectedSidebarPath("downloads");
+              }
+            }}
+            onDoubleClick={() => {
+              if (systemPaths && clickBehavior === "double") {
+                openFolder(systemPaths.downloads);
+              }
+            }}
           >
             <span className="sidebar-item-icon">📥</span> Downloads
           </div>
 
           <div
-            className={`sidebar-item ${systemPaths && currentPath === systemPaths.documents ? "active" : ""}`}
-            onClick={() => systemPaths && openFolder(systemPaths.documents)}
+            className={`sidebar-item ${systemPaths && currentPath === systemPaths.documents ? "active" : ""} ${selectedSidebarPath === "documents" ? "selected" : ""}`}
+            onClick={() => {
+              if (!systemPaths) return;
+              if (clickBehavior === "single") {
+                openFolder(systemPaths.documents);
+              } else {
+                setSelectedSidebarPath("documents");
+              }
+            }}
+            onDoubleClick={() => {
+              if (systemPaths && clickBehavior === "double") {
+                openFolder(systemPaths.documents);
+              }
+            }}
           >
             <span className="sidebar-item-icon">📄</span> Documents
           </div>
 
           <div
-            className={`sidebar-item ${systemPaths && currentPath === systemPaths.pictures ? "active" : ""}`}
-            onClick={() => systemPaths && openFolder(systemPaths.pictures)}
+            className={`sidebar-item ${systemPaths && currentPath === systemPaths.pictures ? "active" : ""} ${selectedSidebarPath === "pictures" ? "selected" : ""}`}
+            onClick={() => {
+              if (!systemPaths) return;
+              if (clickBehavior === "single") {
+                openFolder(systemPaths.pictures);
+              } else {
+                setSelectedSidebarPath("pictures");
+              }
+            }}
+            onDoubleClick={() => {
+              if (systemPaths && clickBehavior === "double") {
+                openFolder(systemPaths.pictures);
+              }
+            }}
           >
             <span className="sidebar-item-icon">🖼️</span> Pictures
           </div>
 
           <div
-            className={`sidebar-item ${systemPaths && currentPath === systemPaths.music ? "active" : ""}`}
-            onClick={() => systemPaths && openFolder(systemPaths.music)}
+            className={`sidebar-item ${systemPaths && currentPath === systemPaths.music ? "active" : ""} ${selectedSidebarPath === "music" ? "selected" : ""}`}
+            onClick={() => {
+              if (!systemPaths) return;
+              if (clickBehavior === "single") {
+                openFolder(systemPaths.music);
+              } else {
+                setSelectedSidebarPath("music");
+              }
+            }}
+            onDoubleClick={() => {
+              if (systemPaths && clickBehavior === "double") {
+                openFolder(systemPaths.music);
+              }
+            }}
           >
             <span className="sidebar-item-icon">🎵</span> Music
           </div>
 
           <div
-            className={`sidebar-item ${systemPaths && currentPath === systemPaths.videos ? "active" : ""}`}
-            onClick={() => systemPaths && openFolder(systemPaths.videos)}
+            className={`sidebar-item ${systemPaths && currentPath === systemPaths.videos ? "active" : ""} ${selectedSidebarPath === "videos" ? "selected" : ""}`}
+            onClick={() => {
+              if (!systemPaths) return;
+              if (clickBehavior === "single") {
+                openFolder(systemPaths.videos);
+              } else {
+                setSelectedSidebarPath("videos");
+              }
+            }}
+            onDoubleClick={() => {
+              if (systemPaths && clickBehavior === "double") {
+                openFolder(systemPaths.videos);
+              }
+            }}
           >
             <span className="sidebar-item-icon">🎬</span> Videos
           </div>
 
           <div
-            className={`sidebar-item ${currentPath === "RecycleBin" ? "active" : ""}`}
+            className={`sidebar-item ${currentPath === "RecycleBin" ? "active" : ""} ${selectedSidebarPath === "RecycleBin" ? "selected" : ""}`}
             onClick={() => {
-              setCurrentPath("RecycleBin");
-              setAddressPath("Recycle Bin");
+              if (clickBehavior === "single") {
+                setCurrentPath("RecycleBin");
+                setAddressPath("Recycle Bin");
+              } else {
+                setSelectedSidebarPath("RecycleBin");
+              }
+            }}
+            onDoubleClick={() => {
+              if (clickBehavior === "double") {
+                setCurrentPath("RecycleBin");
+                setAddressPath("Recycle Bin");
+              }
             }}
           >
             <span className="sidebar-item-icon">🗑️</span> Recycle Bin
@@ -4357,8 +4507,19 @@ function App() {
           <div className="sidebar-title">This PC</div>
 
           <div
-            className={`sidebar-item ${currentPath === null ? "active" : ""}`}
-            onClick={goToThisPC}
+            className={`sidebar-item ${currentPath === null ? "active" : ""} ${selectedSidebarPath === "ThisPC" ? "selected" : ""}`}
+            onClick={() => {
+              if (clickBehavior === "single") {
+                goToThisPC();
+              } else {
+                setSelectedSidebarPath("ThisPC");
+              }
+            }}
+            onDoubleClick={() => {
+              if (clickBehavior === "double") {
+                goToThisPC();
+              }
+            }}
           >
             <span className="sidebar-item-icon">💻</span> This PC
           </div>
@@ -4366,8 +4527,19 @@ function App() {
           {drives.map((drive) => (
             <div
               key={drive.path}
-              className={`sidebar-item ${currentPath === drive.path ? "active" : ""}`}
-              onClick={() => openFolder(drive.path)}
+              className={`sidebar-item ${currentPath === drive.path ? "active" : ""} ${selectedSidebarPath === drive.path ? "selected" : ""}`}
+              onClick={() => {
+                if (clickBehavior === "single") {
+                  openFolder(drive.path);
+                } else {
+                  setSelectedSidebarPath(drive.path);
+                }
+              }}
+              onDoubleClick={() => {
+                if (clickBehavior === "double") {
+                  openFolder(drive.path);
+                }
+              }}
             >
               <span className="sidebar-item-icon">💾</span> {drive.name}
             </div>
@@ -4489,6 +4661,7 @@ function App() {
               currentPath={currentPath}
               onNavigate={(path) => openFolder(path)}
               onClose={closeToolView}
+              clickBehavior={clickBehavior}
             />
           )}
           {currentPath === "tool:archive" && (
@@ -4641,11 +4814,22 @@ function App() {
                     ].map((folder) => (
                       <div
                         key={folder.name}
-                        onClick={() => openFolder(folder.path)}
+                        onClick={() => {
+                          if (clickBehavior === "single") {
+                            openFolder(folder.path);
+                          } else {
+                            setSelectedHomePath(folder.path);
+                          }
+                        }}
+                        onDoubleClick={() => {
+                          if (clickBehavior === "double") {
+                            openFolder(folder.path);
+                          }
+                        }}
                         style={{
                           padding: "20px",
-                          backgroundColor: "#050d1b",
-                          border: "1px solid var(--color-border)",
+                          backgroundColor: selectedHomePath === folder.path ? "rgba(0, 120, 212, 0.15)" : "#050d1b",
+                          border: selectedHomePath === folder.path ? "2px solid #0078d4" : "1px solid var(--color-border)",
                           borderRadius: "8px",
                           cursor: "pointer",
                           display: "flex",
@@ -4656,12 +4840,15 @@ function App() {
                         }}
                         onMouseEnter={(e) => {
                           e.currentTarget.style.transform = "translateY(-4px)";
-                          e.currentTarget.style.backgroundColor =
-                            "rgba(255,255,255,0.05)";
+                          if (selectedHomePath !== folder.path) {
+                            e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)";
+                          }
                         }}
                         onMouseLeave={(e) => {
                           e.currentTarget.style.transform = "none";
-                          e.currentTarget.style.backgroundColor = "#050d1b";
+                          if (selectedHomePath !== folder.path) {
+                            e.currentTarget.style.backgroundColor = "#050d1b";
+                          }
                         }}
                       >
                         <img
@@ -4701,11 +4888,24 @@ function App() {
                     const capacity = getDriveCapacityInfo(drive.path);
                     return (
                       <div
-                        className="drive"
+                        className={`drive ${selectedHomePath === drive.path ? "selected" : ""}`}
                         key={drive.path}
-                        onClick={() => openFolder(drive.path)}
+                        onClick={() => {
+                          if (clickBehavior === "single") {
+                            openFolder(drive.path);
+                          } else {
+                            setSelectedHomePath(drive.path);
+                          }
+                        }}
+                        onDoubleClick={() => {
+                          if (clickBehavior === "double") {
+                            openFolder(drive.path);
+                          }
+                        }}
                         style={{
                           padding: "15px",
+                          backgroundColor: selectedHomePath === drive.path ? "rgba(0, 120, 212, 0.15)" : undefined,
+                          border: selectedHomePath === drive.path ? "2px solid #0078d4" : undefined,
                           borderRadius: "8px",
                           cursor: "pointer",
                           display: "flex",
@@ -5008,9 +5208,24 @@ function App() {
 
                   return (
                     <div
-                      className="drive"
+                      className={`drive ${selectedHomePath === drive.path ? "selected" : ""}`}
                       key={drive.path}
-                      onDoubleClick={() => openFolder(drive.path)}
+                      onClick={() => {
+                        if (clickBehavior === "single") {
+                          openFolder(drive.path);
+                        } else {
+                          setSelectedHomePath(drive.path);
+                        }
+                      }}
+                      onDoubleClick={() => {
+                        if (clickBehavior === "double") {
+                          openFolder(drive.path);
+                        }
+                      }}
+                      style={{
+                        backgroundColor: selectedHomePath === drive.path ? "rgba(0, 120, 212, 0.15)" : undefined,
+                        border: selectedHomePath === drive.path ? "2px solid #0078d4" : undefined,
+                      }}
                     >
                       <div className="drive-icon">💾</div>
 
@@ -5086,10 +5301,12 @@ function App() {
                         onDragEnd={handleDragEnd}
                         onClick={(event) => handleItemClick(event, item, index)}
                         onDoubleClick={() => {
-                          if (item.isDirectory) {
-                            openFolder(item.path);
-                          } else {
-                            openSelectedItemByPath(item);
+                          if (clickBehavior === "double") {
+                            if (item.isDirectory) {
+                              openFolder(item.path);
+                            } else {
+                              openSelectedItemByPath(item);
+                            }
                           }
                         }}
                         onContextMenu={(event) => {
@@ -5173,10 +5390,12 @@ function App() {
                         onDragEnd={handleDragEnd}
                         onClick={(event) => handleItemClick(event, item, index)}
                         onDoubleClick={() => {
-                          if (item.isDirectory) {
-                            openFolder(item.path);
-                          } else {
-                            openSelectedItemByPath(item);
+                          if (clickBehavior === "double") {
+                            if (item.isDirectory) {
+                              openFolder(item.path);
+                            } else {
+                              openSelectedItemByPath(item);
+                            }
                           }
                         }}
                         onContextMenu={(event) => {
@@ -5261,10 +5480,12 @@ function App() {
                               handleItemClick(event, item, index)
                             }
                             onDoubleClick={() => {
-                              if (item.isDirectory) {
-                                openFolder(item.path);
-                              } else {
-                                openSelectedItemByPath(item);
+                              if (clickBehavior === "double") {
+                                if (item.isDirectory) {
+                                  openFolder(item.path);
+                                } else {
+                                  openSelectedItemByPath(item);
+                                }
                               }
                             }}
                             onContextMenu={(event) => {

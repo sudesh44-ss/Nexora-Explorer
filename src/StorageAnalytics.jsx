@@ -95,7 +95,7 @@ function StorageAnalytics({ currentPath, onClose }) {
   };
 
   const handleChooseCustomFolder = async () => {
-    const res = await window.electronFeatures.chooseFolder();
+    const res = await window.electronFeatures.chooseFolder(scanPath);
     if (res.success && !res.canceled && res.path) {
       setScanPath(res.path);
       loadCache(res.path);

@@ -408,8 +408,8 @@ getHiddenStatuses: (paths) =>
     paths,
   ),
 
-  chooseFolder: () =>
-    ipcRenderer.invoke("choose-folder"),
+  chooseFolder: (defaultPath) =>
+    ipcRenderer.invoke("choose-folder", defaultPath),
 
   debugLog: (data) =>
     ipcRenderer.invoke("debug-log", data),

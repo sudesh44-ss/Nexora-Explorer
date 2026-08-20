@@ -7,6 +7,7 @@ const {
   ipcMain,
   shell,
   dialog,
+  app,
 } = require("electron");
 
 const fs = require("fs");
@@ -1433,35 +1434,7 @@ ipcMain.handle(
 // 14. Select Folder
 // ============================================================
 
-ipcMain.handle(
-  "feature:choose-folder",
-  async () => {
-    try {
-      const result =
-        await dialog.showOpenDialog({
-          properties: [
-            "openDirectory",
-          ],
-        });
 
-      if (result.canceled) {
-        return success({
-          canceled: true,
-          path: null,
-        });
-      }
-
-      return success({
-        canceled: false,
-        path:
-          result.filePaths[0] ||
-          null,
-      });
-    } catch (error) {
-      return failure(error);
-    }
-  },
-);
 
 ipcMain.handle(
   "feature:choose-file",
@@ -1506,16 +1479,15 @@ ipcMain.handle(
 
 ipcMain.handle("get-system-paths", async () => {
   try {
-    const home = os.homedir();
     return {
       success: true,
-      home,
-      desktop: path.join(home, "Desktop"),
-      documents: path.join(home, "Documents"),
-      downloads: path.join(home, "Downloads"),
-      pictures: path.join(home, "Pictures"),
-      music: path.join(home, "Music"),
-      videos: path.join(home, "Videos"),
+      home: app.getPath("home"),
+      desktop: app.getPath("desktop"),
+      documents: app.getPath("documents"),
+      downloads: app.getPath("downloads"),
+      pictures: app.getPath("pictures"),
+      music: app.getPath("music"),
+      videos: app.getPath("videos"),
     };
   } catch (error) {
     return { success: false, error: error.message };

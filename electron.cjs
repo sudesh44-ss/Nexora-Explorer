@@ -561,9 +561,25 @@ ipcMain.handle(
   "read-directory",
   async (event, directoryPath, showHidden = false) => {
     try {
-      const entries = await fs.promises.readdir(directoryPath, {
-        withFileTypes: true,
-      });
+      if (!fs.existsSync(directoryPath)) {
+        return { error: "Location unavailable: folder not found." };
+      }
+      const stat = await fs.promises.stat(directoryPath);
+      if (!stat.isDirectory()) {
+        return { error: "Location unavailable: selected path is not a folder." };
+      }
+
+      let entries;
+      try {
+        entries = await fs.promises.readdir(directoryPath, {
+          withFileTypes: true,
+        });
+      } catch (err) {
+        if (err.code === "EACCES" || err.code === "EPERM") {
+          return { error: "Access denied: cannot access this location." };
+        }
+        return { error: `Location unavailable: unable to read folder (${err.code || err.message}).` };
+      }
 
       const items = await Promise.all(
         entries.map(async (entry) => {
@@ -957,16 +973,20 @@ ipcMain.handle("open-item", async (event, itemPath) => {
 });
 
 
-ipcMain.handle("choose-folder", async (event) => {
+ipcMain.handle("choose-folder", async (event, defaultPath) => {
   try {
     const win = BrowserWindow.fromWebContents(event.sender);
-    const result = await dialog.showOpenDialog(win, {
+    const options = {
       properties: ["openDirectory"],
-    });
-    if (result.canceled || result.filePaths.length === 0) {
-      return { success: false };
+    };
+    if (defaultPath && typeof defaultPath === "string" && fs.existsSync(defaultPath)) {
+      options.defaultPath = defaultPath;
     }
-    return { success: true, path: result.filePaths[0] };
+    const result = await dialog.showOpenDialog(win, options);
+    if (result.canceled || result.filePaths.length === 0) {
+      return { success: true, canceled: true, path: null };
+    }
+    return { success: true, canceled: false, path: result.filePaths[0] };
   } catch (error) {
     console.error("Choose folder dialog failed:", error);
     return { success: false, error: error.message };

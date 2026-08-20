@@ -170,7 +170,7 @@ function ArchiveManager({ currentPath, selectedItem, onClose }) {
   };
 
   const handleAddFolder = async () => {
-    const res = await window.electronFeatures.chooseFolder();
+    const res = await window.electronFeatures.chooseFolder(currentPath);
     if (res.success && !res.canceled && res.path) {
       setSelectedItems(prev => [...new Set([...prev, res.path])]);
     }
@@ -181,7 +181,7 @@ function ArchiveManager({ currentPath, selectedItem, onClose }) {
   };
 
   const handleSelectDestination = async () => {
-    const res = await window.electronFeatures.chooseFolder();
+    const res = await window.electronFeatures.chooseFolder(currentPath);
     if (res.success && !res.canceled && res.path) {
       setDestination(res.path);
     }
@@ -253,7 +253,7 @@ function ArchiveManager({ currentPath, selectedItem, onClose }) {
   };
 
   const handleSelectCustomExtractDir = async () => {
-    const res = await window.electronFeatures.chooseFolder();
+    const res = await window.electronFeatures.chooseFolder(currentPath);
     if (res.success && !res.canceled && res.path) {
       setCustomExtractDir(res.path);
     }

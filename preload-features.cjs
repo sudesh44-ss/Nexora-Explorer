@@ -250,9 +250,10 @@ const featureAPI = {
     );
   },
 
-  chooseFolder: () => {
+  chooseFolder: (defaultPath) => {
     return invoke(
-      "feature:choose-folder",
+      "choose-folder",
+      defaultPath,
     );
   },
 

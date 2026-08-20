@@ -14,7 +14,7 @@ const trace = (message, obj) => {
   }
 };
 
-function AdvancedSearch({ currentPath, onNavigate, onClose }) {
+function AdvancedSearch({ currentPath, onNavigate, onClose, clickBehavior = "double" }) {
   const [searchText, setSearchText] = useState("");
   const [showFilters, setShowFilters] = useState(true);
   const [activeFilter, setActiveFilter] = useState("All");
@@ -24,6 +24,7 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
   const [selectedFolderPath, setSelectedFolderPath] = useState(null);
   const [prevPath, setPrevPath] = useState(currentPath);
   const inputRef = useRef(null);
+  const [selectedResultPath, setSelectedResultPath] = useState(null);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -118,7 +119,8 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
   }, []);
 
   const handleChooseFolder = async () => {
-    const res = await window.fileExplorer.chooseFolder();
+    const defaultPath = isPhysical(currentPath) ? currentPath : (selectedFolderPath || null);
+    const res = await window.fileExplorer.chooseFolder(defaultPath);
     if (res && res.success && res.path) {
       trace("[AdvancedSearch] Selected folder changed:", res.path);
       setSelectedFolderPath(res.path);
@@ -130,7 +132,8 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
     trace("[AdvancedSearch] Scope changed:", scope);
     setSearchScope(scope);
     if (scope === "Selected Folder" && !selectedFolderPath) {
-      const res = await window.fileExplorer.chooseFolder();
+      const defaultPath = isPhysical(currentPath) ? currentPath : null;
+      const res = await window.fileExplorer.chooseFolder(defaultPath);
       if (res && res.success && res.path) {
         trace("[AdvancedSearch] Selected folder changed via scope change:", res.path);
         setSelectedFolderPath(res.path);
@@ -149,6 +152,7 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
     setIsComplete(false);
     setProgressData(null);
     setFinalStats(null);
+    setSelectedResultPath(null);
     startTimeRef.current = Date.now();
 
     let foldersCount = 0;
@@ -344,6 +348,7 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
     setIsCancelled(false);
     setIsComplete(false);
     setFinalStats(null);
+    setSelectedResultPath(null);
 
     setFilters({
       name: "",
@@ -849,6 +854,26 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
                     <div
                       key={item.path}
                       className="search-result-row"
+                      onClick={() => {
+                        if (clickBehavior === "single") {
+                          onNavigate(
+                            item.isDirectory
+                              ? item.path
+                              : item.path.substring(0, item.path.lastIndexOf("\\")),
+                          );
+                        } else {
+                          setSelectedResultPath(item.path);
+                        }
+                      }}
+                      onDoubleClick={() => {
+                        if (clickBehavior === "double") {
+                          onNavigate(
+                            item.isDirectory
+                              ? item.path
+                              : item.path.substring(0, item.path.lastIndexOf("\\")),
+                          );
+                        }
+                      }}
                       style={{
                         display: "flex",
                         justifyContent: "space-between",
@@ -857,20 +882,19 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
                         cursor: "pointer",
                         borderRadius: "5px",
                         transition: "background 0.2s",
+                        backgroundColor: selectedResultPath === item.path ? "rgba(0, 120, 212, 0.15)" : "transparent",
+                        border: selectedResultPath === item.path ? "1px solid #0078d4" : undefined,
                       }}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.backgroundColor = "#f5f5f5")
-                      }
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.backgroundColor = "transparent")
-                      }
-                      onDoubleClick={() =>
-                        onNavigate(
-                          item.isDirectory
-                            ? item.path
-                            : item.path.substring(0, item.path.lastIndexOf("\\")),
-                        )
-                      }
+                      onMouseEnter={(e) => {
+                        if (selectedResultPath !== item.path) {
+                          e.currentTarget.style.backgroundColor = "#f5f5f5";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (selectedResultPath !== item.path) {
+                          e.currentTarget.style.backgroundColor = "transparent";
+                        }
+                      }}
                     >
                       <div style={{ display: "flex", flexDirection: "column" }}>
                         <span style={{ fontWeight: "500", color: "#333" }}>
