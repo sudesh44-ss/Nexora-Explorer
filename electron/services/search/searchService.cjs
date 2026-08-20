@@ -519,6 +519,7 @@ async function runSearch(scopesList, queryStr, filterType = "all", showHidden = 
           options.searchScope === "Subfolders" || 
           options.searchScope === "Entire Drive" || 
           options.searchScope === "Multiple Drives" ||
+          options.searchScope === "Selected Folder" ||
           options.searchScope === undefined;
           
         if (isRecursive) {

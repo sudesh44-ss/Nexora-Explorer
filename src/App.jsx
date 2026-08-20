@@ -293,6 +293,16 @@ function App() {
   const [deepSearch, setDeepSearch] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [prevSearchQuery, setPrevSearchQuery] = useState("");
+  const [prevDeepSearch, setPrevDeepSearch] = useState(false);
+
+  if (searchQuery !== prevSearchQuery || deepSearch !== prevDeepSearch) {
+    setPrevSearchQuery(searchQuery);
+    setPrevDeepSearch(deepSearch);
+    if (!deepSearch || !searchQuery.trim()) {
+      setSearchResults([]);
+    }
+  }
 
   const [clipboardHistory, setClipboardHistory] = useState(() => {
     try {
@@ -1113,6 +1123,16 @@ function App() {
     filterType,
   ]);
 
+  useEffect(() => {
+    if (deepSearch && searchQuery.trim()) {
+      const delayDebounceFn = setTimeout(() => {
+        runAdvancedSearch();
+      }, 400);
+      return () => clearTimeout(delayDebounceFn);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, deepSearch, filterType, currentPath]);
+
   // ============================================================
   // Load Drives
   // ============================================================
@@ -1457,11 +1477,13 @@ function App() {
     setError("");
 
     try {
+      await window.electronFeatures.cancelSearch();
       const result = await window.fileExplorer.searchDirectory(
         currentPath,
         searchQuery.trim(),
         filterType,
         showHiddenOverride,
+        { searchScope: "Subfolders" }
       );
 
       if (result?.error) {
