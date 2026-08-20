@@ -138,6 +138,7 @@ getRegisteredApplications: (extension) =>
   query,
   filterType,
   showHidden = false,
+  options = {}
 ) =>
   ipcRenderer.invoke(
     "search-directory",
@@ -145,6 +146,7 @@ getRegisteredApplications: (extension) =>
     query,
     filterType,
     Boolean(showHidden),
+    options
   ),
 
   createZip: (sourcePath, destinationZip) =>
@@ -406,13 +408,14 @@ getHiddenStatuses: (paths) =>
   resolveTransferConflict: (conflictId, options) =>
     ipcRenderer.invoke("resolve-transfer-conflict", conflictId, options),
 
-  searchDirectory: (rootPath, query, filterType, showHidden = false) =>
+  searchDirectory: (rootPath, query, filterType, showHidden = false, options = {}) =>
     ipcRenderer.invoke(
       "search-directory",
       rootPath,
       query,
       filterType,
       Boolean(showHidden),
+      options
     ),
 
   calculateHash: async (filePath, algorithm) => {

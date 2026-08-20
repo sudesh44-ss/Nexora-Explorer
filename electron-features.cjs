@@ -1463,6 +1463,26 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle(
+  "feature:choose-file",
+  async () => {
+    try {
+      const result = await dialog.showOpenDialog({
+        properties: ["openFile"],
+      });
+      if (result.canceled) {
+        return success({ canceled: true, path: null });
+      }
+      return success({
+        canceled: false,
+        path: result.filePaths[0] || null,
+      });
+    } catch (error) {
+      return failure(error);
+    }
+  },
+);
+
 // ============================================================
 // 15. Feature Health Check
 // ============================================================
@@ -1500,6 +1520,550 @@ ipcMain.handle("get-system-paths", async () => {
   } catch (error) {
     return { success: false, error: error.message };
   }
+});
+
+// ============================================================
+// Developer Features Services Connection
+// ============================================================
+
+const developerService = require("./electron/services/developerService.cjs");
+
+ipcMain.handle("developer:terminal", async (_event, folderOrFilePath, terminalType) => {
+  return await developerService.openTerminal(folderOrFilePath, terminalType);
+});
+
+ipcMain.handle("developer:git-status", async (_event, folderPath) => {
+  return await developerService.gitStatus(folderPath);
+});
+
+ipcMain.handle("developer:git-info", async (_event, folderPath) => {
+  return await developerService.gitInfo(folderPath);
+});
+
+ipcMain.handle("developer:encode", async (_event, input, algorithm, isFilePath) => {
+  return await developerService.encodeData(input, algorithm, isFilePath);
+});
+
+ipcMain.handle("developer:decode", async (_event, input, algorithm, isFilePath) => {
+  return await developerService.decodeData(input, algorithm, isFilePath);
+});
+
+ipcMain.handle("developer:hex-read", async (_event, filePath, offset, limit) => {
+  return await developerService.readHexChunk(filePath, offset, limit);
+});
+
+ipcMain.handle("developer:json-parse", async (_event, jsonText, filePath) => {
+  return await developerService.jsonParse(jsonText, filePath);
+});
+
+ipcMain.handle("developer:json-format", async (_event, jsonText, mode) => {
+  return await developerService.jsonFormat(jsonText, mode);
+});
+
+ipcMain.handle("developer:json-save", async (_event, filePath, jsonText) => {
+  return await developerService.jsonSave(filePath, jsonText);
+});
+
+ipcMain.handle("developer:code-preview", async (_event, filePath, maxLines, maxBytes) => {
+  return await developerService.getCodePreview(filePath, maxLines, maxBytes);
+});
+
+ipcMain.handle("developer:file-hash", async (_event, filePath, algorithm) => {
+  return await developerService.calculateFileHash(filePath, algorithm);
+});
+
+ipcMain.handle("developer:compare-file-hashes", async (_event, firstPath, secondPath, algorithm) => {
+  return await developerService.compareFileHashes(firstPath, secondPath, algorithm);
+});
+
+ipcMain.handle("developer:file-metadata", async (_event, filePath) => {
+  return await developerService.getFileMetadata(filePath);
+});
+
+ipcMain.handle("developer:context-action", async (_event, actionName, filePath, extraArgs) => {
+  return await developerService.runContextAction(actionName, filePath, extraArgs);
+});
+
+// ============================================================
+// Network Features Services Connection
+// ============================================================
+
+const networkService = require("./electron/services/networkService.cjs");
+
+ipcMain.handle("network:discover", async () => {
+  return await networkService.discoverDevices();
+});
+
+ipcMain.handle("network:get-interfaces", async () => {
+  try {
+    return { success: true, interfaces: networkService.getLocalInterfaces() };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("network:connect-smb", async (_event, pathStr, username, password) => {
+  return await networkService.connectSMBShare(pathStr, username, password);
+});
+
+ipcMain.handle("network:browse-smb", async (_event, pathStr) => {
+  return await networkService.browseSMB(pathStr);
+});
+
+ipcMain.handle("network:test-ftp", async (_event, host, port, username, password, secure) => {
+  return await networkService.testFTP(host, port, username, password, secure);
+});
+
+ipcMain.handle("network:connect-ftp", async (_event, host, port, username, password, secure) => {
+  return await networkService.connectFTP(host, port, username, password, secure);
+});
+
+ipcMain.handle("network:test-sftp", async (_event, host, port, username, password, privateKeyPath) => {
+  return await networkService.testSFTP(host, port, username, password, privateKeyPath);
+});
+
+ipcMain.handle("network:connect-sftp", async (_event, host, port, username, password, privateKeyPath) => {
+  return await networkService.connectSFTP(host, port, username, password, privateKeyPath);
+});
+
+ipcMain.handle("network:webdav-connect", async (_event, url, username, password) => {
+  return await networkService.connectWebDAV(url, username, password);
+});
+
+ipcMain.handle("network:browse-remote", async (_event, sessionId, remotePath) => {
+  return await networkService.browseRemote(sessionId, remotePath);
+});
+
+ipcMain.handle("network:upload", async (_event, sessionId, localFilePath, remoteFilePath) => {
+  return await networkService.uploadFile(sessionId, localFilePath, remoteFilePath);
+});
+
+ipcMain.handle("network:download", async (_event, sessionId, remoteFilePath, localFilePath) => {
+  return await networkService.downloadFile(sessionId, remoteFilePath, localFilePath);
+});
+
+ipcMain.handle("network:rename", async (_event, sessionId, remoteOldPath, remoteNewPath) => {
+  return await networkService.renameRemote(sessionId, remoteOldPath, remoteNewPath);
+});
+
+ipcMain.handle("network:delete", async (_event, sessionId, remotePath, isDir) => {
+  return await networkService.deleteRemote(sessionId, remotePath, isDir);
+});
+
+ipcMain.handle("network:create-folder", async (_event, sessionId, remotePath) => {
+  return await networkService.createRemoteFolder(sessionId, remotePath);
+});
+
+// Network mapped drives
+ipcMain.handle("network:get-mapped-drives", async () => {
+  return await networkService.getMappedDrives();
+});
+
+ipcMain.handle("network:map-drive", async (_event, letter, remotePath, username, password) => {
+  return await networkService.mapDrive(letter, remotePath, username, password);
+});
+
+ipcMain.handle("network:unmap-drive", async (_event, letter) => {
+  return await networkService.unmapDrive(letter);
+});
+
+// NAS Storage Locations
+ipcMain.handle("network:get-nas", async () => {
+  return await networkService.getNasLocations();
+});
+
+ipcMain.handle("network:add-nas", async (_event, name, protocol, pathOrHost, port, username, password) => {
+  return await networkService.addNasLocation(name, protocol, pathOrHost, port, username, password);
+});
+
+ipcMain.handle("network:remove-nas", async (_event, id) => {
+  return await networkService.removeNasLocation(id);
+});
+
+// ============================================================
+// OCR Features Services Connection
+// ============================================================
+
+const ocrService = require("./electron/services/ocr/ocrService.cjs");
+
+ipcMain.handle("ocr:get-status", async () => {
+  return await ocrService.checkOcrEngineStatus();
+});
+
+ipcMain.handle("ocr:start-file", async (event, filePath, options) => {
+  try {
+    return await ocrService.processOcr(filePath, options, event.sender);
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("ocr:add-queue", async (_event, filePaths, options) => {
+  return ocrService.addToQueue(filePaths, options);
+});
+
+ipcMain.handle("ocr:get-queue", async () => {
+  return ocrService.getQueueState();
+});
+
+ipcMain.handle("ocr:control-queue", async (event, action, itemId) => {
+  if (action === "start") {
+    return ocrService.startQueue(event.sender);
+  } else if (action === "pause") {
+    return ocrService.pauseQueue();
+  } else if (action === "resume") {
+    return ocrService.resumeQueue(event.sender);
+  } else if (action === "cancel") {
+    return ocrService.cancelQueueItem(itemId);
+  } else if (action === "clear-completed") {
+    return ocrService.clearCompletedQueue();
+  }
+  return { success: false, error: `Unknown queue action: ${action}` };
+});
+
+ipcMain.handle("ocr:search", async (_event, query, scope, targetPath) => {
+  return await ocrService.searchOcrIndex(query, scope, targetPath);
+});
+
+ipcMain.handle("ocr:get-settings", async () => {
+  return await ocrService.getSettings();
+});
+
+ipcMain.handle("ocr:save-settings", async (_event, settings) => {
+  return await ocrService.saveSettings(settings);
+});
+
+ipcMain.handle("ocr:export-text", async (_event, localDestPath, text) => {
+  return await ocrService.exportToTxt(localDestPath, text);
+});
+
+ipcMain.handle("ocr:export-json", async (_event, localDestPath, data) => {
+  return await ocrService.exportToJson(localDestPath, data);
+});
+
+// ============================================================
+// Security Features Services Connection
+// ============================================================
+
+const securityService = require("./electron/services/security/securityService.cjs");
+
+ipcMain.handle("security:get-permissions", async (_event, filePath) => {
+  return await securityService.getWindowsPermissions(filePath);
+});
+
+ipcMain.handle("security:get-owner", async (_event, filePath) => {
+  return await securityService.getWindowsOwner(filePath);
+});
+
+ipcMain.handle("security:set-permissions", async (_event, filePath, username, right, type) => {
+  return await securityService.setWindowsPermissions(filePath, username, right, type);
+});
+
+ipcMain.handle("security:set-owner", async (_event, filePath, ownerName) => {
+  return await securityService.setWindowsOwner(filePath, ownerName);
+});
+
+ipcMain.handle("security:get-attributes", async (_event, filePath) => {
+  return await securityService.getProtectionAttributes(filePath);
+});
+
+ipcMain.handle("security:set-attributes", async (_event, filePath, attrs) => {
+  return await securityService.setProtectionAttributes(filePath, attrs);
+});
+
+ipcMain.handle("security:secure-delete", async (event, targetPath) => {
+  return await securityService.secureDeleteEntry(targetPath, event.sender);
+});
+
+ipcMain.handle("security:encrypt", async (_event, filePath, password) => {
+  return await securityService.encryptFile(filePath, password);
+});
+
+ipcMain.handle("security:decrypt", async (_event, encFilePath, password) => {
+  return await securityService.decryptFile(encFilePath, password);
+});
+
+ipcMain.handle("security:vault-create", async (_event, vaultPath, password) => {
+  return await securityService.createVault(vaultPath, password);
+});
+
+ipcMain.handle("security:vault-unlock", async (_event, vaultPath, password) => {
+  return await securityService.unlockVault(vaultPath, password);
+});
+
+ipcMain.handle("security:vault-lock", async (_event, vaultPath) => {
+  return await securityService.lockVault(vaultPath);
+});
+
+ipcMain.handle("security:vault-add", async (_event, vaultPath, localFilePath) => {
+  return await securityService.addFileToVault(vaultPath, localFilePath);
+});
+
+ipcMain.handle("security:vault-extract", async (_event, vaultPath, fileName, destFolder) => {
+  return await securityService.extractFileFromVault(vaultPath, fileName, destFolder);
+});
+
+ipcMain.handle("security:scan-file", async (_event, filePath) => {
+  return await securityService.analyzeFileRisk(filePath);
+});
+
+ipcMain.handle("security:get-logs", async () => {
+  return await securityService.getSecurityLogs();
+});
+
+ipcMain.handle("security:clear-logs", async () => {
+  return await securityService.clearSecurityLogs();
+});
+
+ipcMain.handle("security:get-current-user", async () => {
+  return securityService.getCurrentUser();
+});
+
+// ============================================================
+// Storage Analytics Features Connection
+// ============================================================
+
+const storageAnalyticsService = require("./electron/services/storage/storageAnalyticsService.cjs");
+
+ipcMain.handle("storageAnalytics:get-drives", async () => {
+  return await storageAnalyticsService.getDrivesOverview();
+});
+
+ipcMain.handle("storageAnalytics:scan-start", async (event, rootPath) => {
+  return await storageAnalyticsService.runStorageScan(rootPath, event.sender);
+});
+
+ipcMain.handle("storageAnalytics:scan-cancel", async () => {
+  return storageAnalyticsService.cancelStorageScan();
+});
+
+ipcMain.handle("storageAnalytics:delete-item", async (_event, itemPath) => {
+  return await storageAnalyticsService.deleteAnalyticsItem(itemPath);
+});
+
+ipcMain.handle("storageAnalytics:get-cache", async (_event, targetPath) => {
+  return await storageAnalyticsService.getCache(targetPath);
+});
+
+ipcMain.handle("storageAnalytics:clear-cache", async () => {
+  return await storageAnalyticsService.clearCache();
+});
+
+// ============================================================
+// Archive Manager Features Connection
+// ============================================================
+
+const archiveService = require("./electron/services/archive/archiveService.cjs");
+
+ipcMain.handle("archive:get-supported-formats", async () => {
+  return archiveService.getSupportedFormats();
+});
+
+ipcMain.handle("archive:create", async (event, sourcePaths, destinationPath, format, options) => {
+  return await archiveService.createArchive(sourcePaths, destinationPath, format, options, event.sender);
+});
+
+ipcMain.handle("archive:extract", async (event, archivePath, destinationFolder, options) => {
+  return await archiveService.extractArchive(archivePath, destinationFolder, options, event.sender);
+});
+
+ipcMain.handle("archive:list", async (_event, archivePath, password) => {
+  return await archiveService.listArchiveContents(archivePath, password);
+});
+
+ipcMain.handle("archive:test", async (_event, archivePath) => {
+  return await archiveService.testArchiveIntegrity(archivePath);
+});
+
+// ============================================================
+// Cloud Features Connection
+// ============================================================
+
+const cloudManager = require("./electron/services/cloud/cloudManager.cjs");
+
+ipcMain.handle("cloud:get-providers", async () => {
+  return await cloudManager.getProviders();
+});
+
+ipcMain.handle("cloud:connect", async (_event, providerId, config) => {
+  return await cloudManager.connect(providerId, config);
+});
+
+ipcMain.handle("cloud:disconnect", async (_event, providerId) => {
+  return await cloudManager.disconnect(providerId);
+});
+
+ipcMain.handle("cloud:status", async (_event, providerId) => {
+  return await cloudManager.getStatus(providerId);
+});
+
+ipcMain.handle("cloud:list", async (_event, providerId, remotePath) => {
+  return await cloudManager.listFiles(providerId, remotePath);
+});
+
+ipcMain.handle("cloud:upload", async (_event, providerId, localPath, remotePath) => {
+  return await cloudManager.uploadFile(providerId, localPath, remotePath);
+});
+
+ipcMain.handle("cloud:download", async (_event, providerId, remotePath, localPath) => {
+  return await cloudManager.downloadFile(providerId, remotePath, localPath);
+});
+
+ipcMain.handle("cloud:rename", async (_event, providerId, remotePath, newName) => {
+  return await cloudManager.renameFile(providerId, remotePath, newName);
+});
+
+ipcMain.handle("cloud:delete", async (_event, providerId, remotePath) => {
+  return await cloudManager.deleteFile(providerId, remotePath);
+});
+
+ipcMain.handle("cloud:create-folder", async (_event, providerId, remotePath, folderName) => {
+  return await cloudManager.createFolder(providerId, remotePath, folderName);
+});
+
+ipcMain.handle("cloud:sync", async (event, jobId) => {
+  return await cloudManager.syncJob(jobId, event.sender);
+});
+
+ipcMain.handle("cloud:get-conflicts", async () => {
+  return cloudManager.getConflicts();
+});
+
+ipcMain.handle("cloud:resolve-conflict", async (_event, jobId, relativePath, resolution) => {
+  return await cloudManager.resolveConflict(jobId, relativePath, resolution);
+});
+
+ipcMain.handle("cloud:mark-offline", async (_event, providerId, remotePath) => {
+  return await cloudManager.markOffline(providerId, remotePath);
+});
+
+ipcMain.handle("cloud:remove-offline", async (_event, providerId, remotePath) => {
+  return await cloudManager.removeOffline(providerId, remotePath);
+});
+
+ipcMain.handle("cloud:get-offline-files", async () => {
+  return cloudManager.getOfflineFiles();
+});
+
+// ============================================================
+// Advanced Search History & Saved Searches Connection
+// ============================================================
+const searchService = require("./electron/services/search/searchService.cjs");
+
+ipcMain.handle("search:get-history", async () => {
+  return await searchService.getSearchHistory();
+});
+
+ipcMain.handle("search:add-history", async (_event, item) => {
+  return await searchService.addToSearchHistory(item);
+});
+
+ipcMain.handle("search:clear-history", async () => {
+  return await searchService.clearSearchHistory();
+});
+
+ipcMain.handle("search:get-saved", async () => {
+  return await searchService.getSavedSearches();
+});
+
+ipcMain.handle("search:save", async (_event, item) => {
+  return await searchService.saveSearch(item);
+});
+
+ipcMain.handle("search:delete-saved", async (_event, name) => {
+  return await searchService.deleteSavedSearch(name);
+});
+
+ipcMain.handle("search:cancel", async () => {
+  searchService.cancelSearch();
+  return { success: true };
+});
+
+// ============================================================
+// Real AI File Intelligence Connection
+// ============================================================
+const providerManager = require("./electron/services/ai/providerManager.cjs");
+const aiManager = require("./electron/services/ai/aiManager.cjs");
+const categorization = require("./electron/services/ai/categorization.cjs");
+const tagging = require("./electron/services/ai/tagging.cjs");
+const vision = require("./electron/services/ai/vision.cjs");
+const documentAI = require("./electron/services/ai/documentAI.cjs");
+const semanticSearch = require("./electron/services/ai/semanticSearch.cjs");
+const assistant = require("./electron/services/ai/assistant.cjs");
+
+ipcMain.handle("ai:get-status", async () => {
+  try {
+    const active = await providerManager.getActiveProvider();
+    return {
+      provider: active.name,
+      model: active.status.model || "unknown",
+      available: active.status.available,
+      capabilities: active.status.capabilities || []
+    };
+  } catch (e) {
+    return { available: false, error: e.message };
+  }
+});
+
+ipcMain.handle("ai:get-providers", async () => {
+  return await providerManager.getProviders();
+});
+
+ipcMain.handle("ai:get-config", async () => {
+  return providerManager.getConfig();
+});
+
+ipcMain.handle("ai:set-provider", async (_event, providerName, modelName, url, key) => {
+  return await providerManager.setProviderConfig(providerName, modelName, url, key);
+});
+
+ipcMain.handle("ai:analyze-files", async (event, itemsList, options) => {
+  return await aiManager.analyzeFilesBatch(itemsList, options, event.sender);
+});
+
+ipcMain.handle("ai:categorize", async (_event, fileInfo, extraContent) => {
+  return await categorization.categorizeFile(fileInfo, extraContent);
+});
+
+ipcMain.handle("ai:generate-tags", async (_event, fileInfo, extraContent) => {
+  return await tagging.generateTags(fileInfo, extraContent);
+});
+
+ipcMain.handle("ai:analyze-image", async (_event, imagePath) => {
+  return await vision.analyzeImage(imagePath);
+});
+
+ipcMain.handle("ai:analyze-document", async (_event, filePath) => {
+  return await documentAI.analyzeDocument(filePath);
+});
+
+ipcMain.handle("ai:semantic-search", async (_event, query, sources) => {
+  return await semanticSearch.runSemanticSearch(query, sources);
+});
+
+ipcMain.handle("ai:assistant", async (_event, currentPath, items, question) => {
+  return await assistant.runAssistant(currentPath, items, question);
+});
+
+ipcMain.handle("ai:get-analysis", async (_event, filePath) => {
+  return aiManager.getAnalysis(filePath);
+});
+
+ipcMain.handle("ai:save-tags", async (_event, filePath, tags) => {
+  return aiManager.saveTags(filePath, tags);
+});
+
+ipcMain.handle("ai:get-index-status", async () => {
+  return aiManager.getIndexStatus();
+});
+
+ipcMain.handle("ai:rebuild-index", async () => {
+  return aiManager.rebuildIndex();
+});
+
+ipcMain.handle("ai:cancel", async () => {
+  aiManager.cancelBatch();
+  return { success: true };
 });
 
 // ============================================================

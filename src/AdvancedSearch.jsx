@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import "./AdvancedSearch.css";
 
@@ -10,6 +10,7 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [statusText, setStatusText] = useState("");
 
   const [filters, setFilters] = useState({
     name: "",
@@ -20,10 +21,24 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
     sizeUnit: "MB",
     dateType: "Modified",
     dateValue: "",
+    includeHidden: false,
+    includeSystem: false,
+    regex: false,
+    content: false,
+    metadata: false,
+    exactPhrase: false,
   });
 
   const [sortBy, setSortBy] = useState("Relevance");
   const [groupBy, setGroupBy] = useState("None");
+
+  // History & Saved Searches
+  const [history, setHistory] = useState([]);
+  const [savedSearches, setSavedSearches] = useState([]);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showSavedModal, setShowSavedModal] = useState(false);
+  const [saveName, setSaveName] = useState("");
+  const [showSaveNameInput, setShowSaveNameInput] = useState(false);
 
   const fileTypes = [
     "All",
@@ -50,27 +65,133 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
     }));
   };
 
+  const loadHistory = () => {
+    window.electronFeatures.getSearchHistory().then(setHistory).catch(() => {});
+  };
+
+  const loadSavedSearches = () => {
+    window.electronFeatures.getSavedSearches().then(setSavedSearches).catch(() => {});
+  };
+
+  useEffect(() => {
+    loadHistory();
+    loadSavedSearches();
+
+    // Progress listener
+    const unsubProgress = window.electronFeatures.onSearchProgress((data) => {
+      setStatusText(`Scanned: ${data.scanned} folders... Found: ${data.resultsCount} items.`);
+    });
+
+    return () => {
+      unsubProgress();
+    };
+  }, []);
+
   const handleSearch = async () => {
-    if (!searchText.trim()) return;
+    if (!searchText.trim() && !filters.name && !filters.extension && !filters.sizeValue && !filters.dateValue) {
+      alert("Please enter a query or configure at least one filter.");
+      return;
+    }
     setLoading(true);
     setError("");
+    setStatusText("Initializing search...");
     try {
       const scopePath =
         currentPath && !currentPath.startsWith("tool:") ? currentPath : "C:\\";
       const filterType =
         filters.type === "All" ? "all" : filters.type.toLowerCase();
+      
+      const options = {
+        name: filters.name,
+        extension: filters.extension,
+        sizeOperator: filters.sizeOperator,
+        sizeValue: filters.sizeValue,
+        sizeUnit: filters.sizeUnit,
+        dateType: filters.dateType,
+        dateValue: filters.dateValue,
+        includeHidden: filters.includeHidden,
+        includeSystem: filters.includeSystem,
+        regex: filters.regex,
+        content: filters.content,
+        metadata: filters.metadata,
+        exactPhrase: filters.exactPhrase,
+        sortBy,
+        groupBy,
+        searchScope
+      };
+
       const res = await window.fileExplorer.searchDirectory(
         scopePath,
         searchText,
         filterType,
-        true,
+        filters.includeHidden,
+        options
       );
-      setResults(res || []);
+
+      if (res && res.error) {
+        setError(res.error);
+        setResults([]);
+      } else {
+        setResults(res || []);
+        
+        // Add to history list
+        await window.electronFeatures.addToSearchHistory({
+          query: searchText,
+          filters,
+          scope: searchScope,
+          resultCount: res ? res.length : 0
+        });
+        loadHistory();
+      }
     } catch (err) {
       setError(err.message || "Search failed");
     } finally {
       setLoading(false);
+      setStatusText("");
     }
+  };
+
+  const handleSaveCurrentSearch = async () => {
+    if (!saveName.trim()) return;
+    try {
+      await window.electronFeatures.saveSearch({
+        name: saveName.trim(),
+        query: searchText,
+        filters,
+        scope: searchScope
+      });
+      setSaveName("");
+      setShowSaveNameInput(false);
+      loadSavedSearches();
+      alert("Search query saved successfully!");
+    } catch (e) {
+      alert(`Save failed: ${e.message}`);
+    }
+  };
+
+  const handleDeleteSaved = async (name) => {
+    try {
+      await window.electronFeatures.deleteSavedSearch(name);
+      loadSavedSearches();
+    } catch (e) {
+      alert(`Delete failed: ${e.message}`);
+    }
+  };
+
+  const handleClearHistory = async () => {
+    try {
+      await window.electronFeatures.clearSearchHistory();
+      loadHistory();
+    } catch (e) {
+      alert(`Clear failed: ${e.message}`);
+    }
+  };
+
+  const setDateShortcut = (daysAgo) => {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    const dateStr = d.toISOString().split("T")[0];
+    updateFilter("dateValue", dateStr);
   };
 
   const clearSearch = () => {
@@ -87,9 +208,36 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
       sizeUnit: "MB",
       dateType: "Modified",
       dateValue: "",
+      includeHidden: false,
+      includeSystem: false,
+      regex: false,
+      content: false,
+      metadata: false,
+      exactPhrase: false,
     });
 
     setActiveFilter("All");
+  };
+
+  const getGroupedResults = () => {
+    if (groupBy === "None" || !results.length) return { "All Results": results };
+    const groups = {};
+    for (const item of results) {
+      let g = "Other";
+      if (groupBy === "Type") {
+        g = item.isDirectory ? "Folders" : (item.extension || "Unknown File");
+      } else if (groupBy === "Date") {
+        if (item.modified) {
+          const date = new Date(item.modified);
+          g = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+        }
+      } else if (groupBy === "Location") {
+        g = item.path.substring(0, item.path.lastIndexOf("\\")) || item.path;
+      }
+      if (!groups[g]) groups[g] = [];
+      groups[g].push(item);
+    }
+    return groups;
   };
 
   return (
@@ -279,7 +427,7 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
 
           {/* Date */}
           <div className="filter-section">
-            <div className="filter-section-title">Date</div>
+            <div className="filter-section-title">Date (From Date Onward)</div>
 
             <select
               className="filter-select"
@@ -301,10 +449,10 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
             />
 
             <div className="date-shortcuts">
-              <button>Today</button>
-              <button>Yesterday</button>
-              <button>7 days</button>
-              <button>30 days</button>
+              <button onClick={() => setDateShortcut(0)}>Today</button>
+              <button onClick={() => setDateShortcut(1)}>Yesterday</button>
+              <button onClick={() => setDateShortcut(7)}>7 days</button>
+              <button onClick={() => setDateShortcut(30)}>30 days</button>
             </div>
           </div>
 
@@ -325,12 +473,20 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
             </select>
 
             <label className="checkbox-row">
-              <input type="checkbox" />
+              <input 
+                type="checkbox" 
+                checked={filters.includeHidden}
+                onChange={(e) => updateFilter("includeHidden", e.target.checked)}
+              />
               <span>Include hidden folders</span>
             </label>
 
             <label className="checkbox-row">
-              <input type="checkbox" />
+              <input 
+                type="checkbox" 
+                checked={filters.includeSystem}
+                onChange={(e) => updateFilter("includeSystem", e.target.checked)}
+              />
               <span>Include system folders</span>
             </label>
           </div>
@@ -347,22 +503,38 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
           {showFilters && (
             <div className="advanced-filter-options">
               <label className="checkbox-row">
-                <input type="checkbox" />
+                <input 
+                  type="checkbox" 
+                  checked={filters.regex}
+                  onChange={(e) => updateFilter("regex", e.target.checked)}
+                />
                 <span>Regex search</span>
               </label>
 
               <label className="checkbox-row">
-                <input type="checkbox" />
+                <input 
+                  type="checkbox" 
+                  checked={filters.content}
+                  onChange={(e) => updateFilter("content", e.target.checked)}
+                />
                 <span>Search file content</span>
               </label>
 
               <label className="checkbox-row">
-                <input type="checkbox" />
+                <input 
+                  type="checkbox" 
+                  checked={filters.metadata}
+                  onChange={(e) => updateFilter("metadata", e.target.checked)}
+                />
                 <span>Search metadata</span>
               </label>
 
               <label className="checkbox-row">
-                <input type="checkbox" />
+                <input 
+                  type="checkbox" 
+                  checked={filters.exactPhrase}
+                  onChange={(e) => updateFilter("exactPhrase", e.target.checked)}
+                />
                 <span>Exact phrase</span>
               </label>
             </div>
@@ -370,13 +542,36 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
         </aside>
 
         {/* Right Results Area */}
-        <section className="search-results-panel">
+        <section className="search-results-panel" style={{ position: "relative" }}>
           {/* Results Header */}
           <div className="results-header">
             <div className="results-info">
               <div className="results-title">Search Results</div>
 
-              <div className="results-count">{results.length} results</div>
+              <div className="results-count" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span>{results.length} results</span>
+                {results.length > 0 && !showSaveNameInput && (
+                  <button 
+                    onClick={() => setShowSaveNameInput(true)} 
+                    style={{ fontSize: "11px", padding: "2px 6px", cursor: "pointer", borderRadius: "3px", border: "1px solid #ccc", backgroundColor: "#f9f9f9" }}
+                  >
+                    ☆ Save Query
+                  </button>
+                )}
+              </div>
+              {showSaveNameInput && (
+                <div style={{ marginTop: "5px", display: "flex", gap: "5px", alignItems: "center" }}>
+                  <input 
+                    type="text" 
+                    placeholder="Enter name..." 
+                    value={saveName} 
+                    onChange={(e) => setSaveName(e.target.value)}
+                    style={{ padding: "3px 6px", fontSize: "12px" }}
+                  />
+                  <button onClick={handleSaveCurrentSearch} style={{ padding: "3px 6px", fontSize: "12px", cursor: "pointer" }}>Save</button>
+                  <button onClick={() => setShowSaveNameInput(false)} style={{ padding: "3px 6px", fontSize: "12px", cursor: "pointer" }}>Cancel</button>
+                </div>
+              )}
             </div>
 
             <div className="results-actions">
@@ -427,7 +622,17 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
                   animation: "spin 1s linear infinite",
                 }}
               ></div>
-              <div>Searching the filesystem...</div>
+              <div style={{ marginBottom: "10px" }}>{statusText || "Searching the filesystem..."}</div>
+              <button 
+                onClick={() => {
+                  window.electronFeatures.cancelSearch();
+                  setLoading(false);
+                  setStatusText("Cancelled.");
+                }} 
+                style={{ padding: "5px 15px", cursor: "pointer", backgroundColor: "#ff4343", color: "#fff", border: "none", borderRadius: "3px" }}
+              >
+                Cancel Search
+              </button>
             </div>
           )}
 
@@ -440,49 +645,72 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
             </div>
           )}
 
+          {/* Grouped results view */}
           {!loading && !error && results.length > 0 && (
             <div
               className="search-results-list"
               style={{ flex: 1, overflowY: "auto", padding: "10px" }}
             >
-              {results.map((item) => (
-                <div
-                  key={item.path}
-                  className="search-result-row"
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    padding: "10px",
-                    borderBottom: "1px solid #eee",
-                    cursor: "pointer",
-                    borderRadius: "5px",
-                    transition: "background 0.2s",
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.backgroundColor = "#f5f5f5")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.backgroundColor = "transparent")
-                  }
-                  onDoubleClick={() =>
-                    onNavigate(
-                      item.isDirectory
-                        ? item.path
-                        : item.path.substring(0, item.path.lastIndexOf("\\")),
-                    )
-                  }
-                >
-                  <div style={{ display: "flex", flexDirection: "column" }}>
-                    <span style={{ fontWeight: "500", color: "#333" }}>
-                      {item.isDirectory ? "📁" : "📄"} {item.name}
-                    </span>
-                    <span style={{ fontSize: "12px", color: "#888" }}>
-                      {item.path}
-                    </span>
-                  </div>
-                  <span style={{ fontSize: "12px", color: "#666" }}>
-                    {item.isDirectory ? "Folder" : "File"}
-                  </span>
+              {Object.entries(getGroupedResults()).map(([groupName, groupItems]) => (
+                <div key={groupName} className="search-results-group" style={{ marginBottom: "15px" }}>
+                  {groupBy !== "None" && (
+                    <div style={{ fontWeight: "bold", padding: "5px 10px", backgroundColor: "#f0f0f0", borderRadius: "3px", color: "#333", fontSize: "13px", display: "flex", justifyContent: "space-between", marginBottom: "5px" }}>
+                      <span>{groupName}</span>
+                      <span>({groupItems.length} items)</span>
+                    </div>
+                  )}
+                  {groupItems.map((item) => (
+                    <div
+                      key={item.path}
+                      className="search-result-row"
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        padding: "10px",
+                        borderBottom: "1px solid #eee",
+                        cursor: "pointer",
+                        borderRadius: "5px",
+                        transition: "background 0.2s",
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.backgroundColor = "#f5f5f5")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.backgroundColor = "transparent")
+                      }
+                      onDoubleClick={() =>
+                        onNavigate(
+                          item.isDirectory
+                            ? item.path
+                            : item.path.substring(0, item.path.lastIndexOf("\\")),
+                        )
+                      }
+                    >
+                      <div style={{ display: "flex", flexDirection: "column" }}>
+                        <span style={{ fontWeight: "500", color: "#333" }}>
+                          {item.isDirectory ? "📁" : "📄"} {item.name}
+                        </span>
+                        <span style={{ fontSize: "12px", color: "#888" }}>
+                          {item.path}
+                        </span>
+                        {item.contentLine && (
+                          <span style={{ fontSize: "12px", color: "#555", fontStyle: "italic", marginTop: "3px" }}>
+                            🔍 Match: {item.contentLine} ({item.contentCount} matches)
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "center" }}>
+                        <span style={{ fontSize: "12px", color: "#666" }}>
+                          {item.isDirectory ? "Folder" : "File"}
+                        </span>
+                        {item.size !== null && (
+                          <span style={{ fontSize: "11px", color: "#888", marginTop: "2px" }}>
+                            {(item.size / 1024).toFixed(1)} KB
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
@@ -530,15 +758,100 @@ function AdvancedSearch({ currentPath, onNavigate, onClose }) {
               </div>
             </div>
           )}
+
+          {/* History Overlay */}
+          {showHistoryModal && (
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "#fff", zIndex: 10, display: "flex", flexDirection: "column", padding: "20px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #ddd", paddingBottom: "10px", marginBottom: "15px" }}>
+                <h3 style={{ margin: 0 }}>Search History</h3>
+                <div>
+                  <button onClick={handleClearHistory} style={{ marginRight: "10px", padding: "5px 10px", cursor: "pointer" }}>Clear All</button>
+                  <button onClick={() => setShowHistoryModal(false)} style={{ padding: "5px 10px", cursor: "pointer" }}>Close</button>
+                </div>
+              </div>
+              <div style={{ flex: 1, overflowY: "auto" }}>
+                {history.length === 0 ? (
+                  <p style={{ color: "#666", textAlign: "center" }}>No history found.</p>
+                ) : (
+                  history.map((h, i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px", borderBottom: "1px solid #eee" }}>
+                      <div>
+                        <div style={{ fontWeight: "bold" }}>"{h.query || "(Filters Only)"}"</div>
+                        <div style={{ fontSize: "12px", color: "#666" }}>
+                          Scope: {h.scope} | Result Count: {h.resultCount} | {new Date(h.timestamp).toLocaleString()}
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          setSearchText(h.query || "");
+                          setFilters(h.filters);
+                          setSearchScope(h.scope);
+                          setShowHistoryModal(false);
+                        }}
+                        style={{ padding: "3px 8px", cursor: "pointer" }}
+                      >
+                        Load
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Saved Searches Overlay */}
+          {showSavedModal && (
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "#fff", zIndex: 10, display: "flex", flexDirection: "column", padding: "20px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #ddd", paddingBottom: "10px", marginBottom: "15px" }}>
+                <h3 style={{ margin: 0 }}>Saved Searches</h3>
+                <button onClick={() => setShowSavedModal(false)} style={{ padding: "5px 10px", cursor: "pointer" }}>Close</button>
+              </div>
+              <div style={{ flex: 1, overflowY: "auto" }}>
+                {savedSearches.length === 0 ? (
+                  <p style={{ color: "#666", textAlign: "center" }}>No saved searches.</p>
+                ) : (
+                  savedSearches.map((s, i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px", borderBottom: "1px solid #eee" }}>
+                      <div>
+                        <div style={{ fontWeight: "bold" }}>{s.name}</div>
+                        <div style={{ fontSize: "12px", color: "#666" }}>
+                          Query: "{s.query}" | Scope: {s.scope} | {new Date(s.timestamp).toLocaleString()}
+                        </div>
+                      </div>
+                      <div>
+                        <button 
+                          onClick={() => {
+                            setSearchText(s.query || "");
+                            setFilters(s.filters);
+                            setSearchScope(s.scope);
+                            setShowSavedModal(false);
+                          }}
+                          style={{ padding: "3px 8px", marginRight: "5px", cursor: "pointer" }}
+                        >
+                          Load
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteSaved(s.name)}
+                          style={{ padding: "3px 8px", cursor: "pointer", color: "red" }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </section>
       </div>
 
       {/* Footer */}
       <div className="advanced-search-footer">
         <div className="search-footer-left">
-          <button className="history-btn">◷ Search History</button>
+          <button className="history-btn" onClick={() => setShowHistoryModal(true)}>◷ Search History</button>
 
-          <button className="saved-search-btn">☆ Saved Searches</button>
+          <button className="saved-search-btn" onClick={() => setShowSavedModal(true)}>☆ Saved Searches</button>
         </div>
 
         <div className="search-footer-right">

@@ -16,6 +16,14 @@ import folderSoundIcon from "./assets/icons/Oxygen-Icons.org-Oxygen-Places-folde
 import folderVideoIcon from "./assets/icons/Oxygen-Icons.org-Oxygen-Places-folder-video.256.png";
 import userHomeIcon from "./assets/icons/Oxygen-Icons.org-Oxygen-Places-user-home.256.png";
 
+// Import File Icons
+import fileAudioIcon from "./assets/icons/for files/Benjigarner-Summer-Collection-Hardware-Audio-Helmet.256.png";
+import fileIsoIcon from "./assets/icons/for files/Delacro-Fip-File-iso.128.png";
+import fileImageIcon from "./assets/icons/for files/Harwen-Simple-PNG-Image.256.png";
+import fileVideoIcon from "./assets/icons/for files/Jommans-Emluator-Video.256.png";
+import fileZipIcon from "./assets/icons/for files/Oxygen-Icons.org-Oxygen-Mimetypes-application-zip.256.png";
+import filePdfIcon from "./assets/icons/for files/pdf.png";
+
 // Helper functions for dynamic icons
 function getFolderIcon(name) {
   const lower = String(name || "").toLowerCase();
@@ -33,6 +41,31 @@ function getFolderIcon(name) {
     return folderLockedIcon;
   if (lower === "new folder") return folderNewIcon;
   return folderDefaultIcon;
+}
+
+function getFileIcon(name) {
+  const ext = String(name || "").split(".").pop().toLowerCase();
+  
+  if (["mp3", "wav", "flac", "aac", "ogg", "m4a", "wma"].includes(ext)) {
+    return fileAudioIcon;
+  }
+  if (["iso", "img", "bin"].includes(ext)) {
+    return fileIsoIcon;
+  }
+  if (["jpg", "jpeg", "png", "gif", "webp", "svg", "ico", "bmp"].includes(ext)) {
+    return fileImageIcon;
+  }
+  if (["mp4", "mkv", "avi", "mov", "webm", "m4v"].includes(ext)) {
+    return fileVideoIcon;
+  }
+  if (["zip", "rar", "7z", "tar", "gz"].includes(ext)) {
+    return fileZipIcon;
+  }
+  if (ext === "pdf") {
+    return filePdfIcon;
+  }
+  
+  return null;
 }
 
 function getItemIcon(item, isGrid = false) {
@@ -53,6 +86,23 @@ function getItemIcon(item, isGrid = false) {
       />
     );
   }
+
+  const fileIconSrc = getFileIcon(item.name);
+  if (fileIconSrc) {
+    return (
+      <img
+        src={fileIconSrc}
+        alt="file"
+        style={{
+          width: isGrid ? "48px" : "18px",
+          height: isGrid ? "48px" : "18px",
+          objectFit: "contain",
+          verticalAlign: "middle",
+        }}
+      />
+    );
+  }
+
   return <span style={{ fontSize: isGrid ? "36px" : "16px" }}>📄</span>;
 }
 
@@ -73,6 +123,7 @@ function App() {
   // UI Overhaul States
   // =============================
   const [showDetailsPane, setShowDetailsPane] = useState(true);
+  const [detailsPaneMode, setDetailsPaneMode] = useState("details"); // 'details' | 'preview'
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [selectedItemDetails, setSelectedItemDetails] = useState(null);
   const [selectedFolderSizeDetails, setSelectedFolderSizeDetails] =
@@ -81,7 +132,7 @@ function App() {
   const [showDriverHealthModal, setShowDriverHealthModal] = useState(false);
   const [showNavigationHistoryModal, setShowNavigationHistoryModal] =
     useState(false);
-  const [activeDropdown, setActiveDropdown] = useState(null); // 'view' | 'sort' | 'new' | 'dots' | null
+  const [activeDropdown, setActiveDropdown] = useState(null); // 'settings' | 'view' | 'sort' | 'new' | 'dots' | null
   const draggedTabIdRef = useRef(null);
 
   // =============================
@@ -1287,6 +1338,15 @@ function App() {
     setLastSelectedIndex(null);
     setError("");
     closeContextMenu();
+  }
+
+  async function closeToolView() {
+    const lastPath = historyIndex >= 0 ? history[historyIndex] : null;
+    if (lastPath && lastPath !== "This PC") {
+      await readFolder(lastPath);
+    } else {
+      goToThisPC();
+    }
   }
 
   // ============================================================
@@ -3571,14 +3631,50 @@ function App() {
           {/* Right Top Controls */}
           <div className="topbar-controls">
             {/* Settings / Advanced Ops */}
-            <button
-              type="button"
-              className="topbar-btn"
-              onClick={openAdvancedOperations}
-              title="Advanced file operations"
-            >
-              ⚙️ Settings
-            </button>
+            <div style={{ position: "relative" }}>
+              <button
+                type="button"
+                className={`topbar-btn ${activeDropdown === "settings" ? "active" : ""}`}
+                onClick={() =>
+                  setActiveDropdown(
+                    activeDropdown === "settings" ? null : "settings",
+                  )
+                }
+                title="Advanced file operations"
+                aria-expanded={activeDropdown === "settings"}
+                aria-haspopup="menu"
+              >
+                ⚙️ Settings ▾
+              </button>
+              {activeDropdown === "settings" && (
+                <div className="custom-dropdown-menu" role="menu">
+                  {[
+                    ["Batch Rename", "batch-rename"],
+                    ["Duplicate Finder", "duplicates"],
+                    ["Large Files", "large-files"],
+                    ["Empty Folders", "empty-folders"],
+                    ["Compare Files", "compare-files"],
+                    ["Compare Folders", "compare-folders"],
+                    ["Merge Folders", "merge"],
+                    ["Transfer Queue", "transfer"],
+                    ["File Hash", "hash"],
+                    ["Integrity", "integrity"],
+                  ].map(([label, operation]) => (
+                    <div
+                      key={operation}
+                      className="custom-dropdown-item"
+                      role="menuitem"
+                      onClick={() => {
+                        setActiveDropdown(null);
+                        openAdvancedOperations(operation);
+                      }}
+                    >
+                      <span>{label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* View Dropdown */}
             <div style={{ position: "relative" }}>
@@ -3953,8 +4049,8 @@ function App() {
                 <div
                   className="custom-dropdown-item"
                   onClick={() => {
-                    setCurrentPath("tool:preview");
-                    setAddressPath("File Preview");
+                    setShowDetailsPane(true);
+                    setDetailsPaneMode("preview");
                     setActiveDropdown(null);
                   }}
                 >
@@ -4073,15 +4169,22 @@ function App() {
           <div className="details-hover-menu">
             <div
               className="details-hover-item"
-              onClick={() => setShowDetailsPane((prev) => !prev)}
+              onClick={() => {
+                if (showDetailsPane && detailsPaneMode === "details") {
+                  setShowDetailsPane(false);
+                } else {
+                  setShowDetailsPane(true);
+                  setDetailsPaneMode("details");
+                }
+              }}
             >
               📊 Details
             </div>
             <div
               className="details-hover-item"
               onClick={() => {
-                setCurrentPath("tool:preview");
-                setAddressPath("File Preview");
+                setShowDetailsPane(true);
+                setDetailsPaneMode("preview");
               }}
             >
               🖼️ File Preview
@@ -4230,10 +4333,10 @@ function App() {
           </div>
 
           <div
-            className={`sidebar-item ${currentPath === "tool:preview" ? "active" : ""}`}
+            className={`sidebar-item ${showDetailsPane && detailsPaneMode === "preview" ? "active" : ""}`}
             onClick={() => {
-              setCurrentPath("tool:preview");
-              setAddressPath("File Preview");
+              setShowDetailsPane(true);
+              setDetailsPaneMode("preview");
             }}
           >
             <span className="sidebar-item-icon">🖼️</span> File Preview
@@ -4312,7 +4415,7 @@ function App() {
             <AdvancedSearch
               currentPath={currentPath}
               onNavigate={(path) => openFolder(path)}
-              onClose={goToThisPC}
+              onClose={closeToolView}
             />
           )}
           {currentPath === "tool:archive" && (
@@ -4321,7 +4424,7 @@ function App() {
               selectedItem={
                 selectedPaths.size === 1 ? Array.from(selectedPaths)[0] : null
               }
-              onClose={goToThisPC}
+              onClose={closeToolView}
             />
           )}
           {currentPath === "tool:security" && (
@@ -4331,19 +4434,10 @@ function App() {
                   ? items.find((it) => it.path === Array.from(selectedPaths)[0])
                   : null
               }
-              onClose={goToThisPC}
+              onClose={closeToolView}
             />
           )}
-          {currentPath === "tool:preview" && (
-            <FilePreview
-              selectedItem={
-                selectedPaths.size === 1
-                  ? items.find((it) => it.path === Array.from(selectedPaths)[0])
-                  : null
-              }
-              onClose={goToThisPC}
-            />
-          )}
+
           {currentPath === "tool:ocr" && (
             <OCRManager
               selectedItem={
@@ -4351,28 +4445,28 @@ function App() {
                   ? items.find((it) => it.path === Array.from(selectedPaths)[0])
                   : null
               }
-              onClose={goToThisPC}
+              onClose={closeToolView}
             />
           )}
           {currentPath === "tool:ai" && (
             <AIFeatures
               currentPath={currentPath}
               items={items}
-              onClose={goToThisPC}
+              onClose={closeToolView}
             />
           )}
           {currentPath === "tool:storage" && (
             <StorageAnalytics
               currentPath={currentPath}
               items={items}
-              onClose={goToThisPC}
+              onClose={closeToolView}
             />
           )}
           {currentPath === "tool:network" && (
-            <NetworkFeatures onClose={goToThisPC} />
+            <NetworkFeatures onClose={closeToolView} />
           )}
           {currentPath === "tool:cloud" && (
-            <CloudIntegration onClose={goToThisPC} />
+            <CloudIntegration onClose={closeToolView} />
           )}
           {currentPath === "tool:developer" && (
             <DeveloperFeatures
@@ -4381,7 +4475,12 @@ function App() {
                   ? items.find((it) => it.path === Array.from(selectedPaths)[0])
                   : null
               }
-              onClose={goToThisPC}
+              activeFolderPath={
+                historyIndex >= 0 && history[historyIndex] && !history[historyIndex].startsWith("tool:")
+                  ? history[historyIndex]
+                  : null
+              }
+              onClose={closeToolView}
             />
           )}
 
@@ -5119,100 +5218,136 @@ function App() {
         {/* Right Details Pane */}
         {showDetailsPane && (
           <aside
-            className="details-pane"
+            className={`details-pane ${detailsPaneMode === "preview" ? "preview-mode" : ""}`}
             onClick={(event) => event.stopPropagation()}
           >
-            {selectedItemDetails ? (
-              <>
-                <div className="details-pane-header">
-                  <div className="details-pane-icon-container">
-                    {getItemIcon(selectedItemDetails, true)}
+            <div className="details-pane-tabs">
+              <button
+                className={`details-pane-tab ${detailsPaneMode === "details" ? "active" : ""}`}
+                onClick={() => setDetailsPaneMode("details")}
+              >
+                📊 Details
+              </button>
+              <button
+                className={`details-pane-tab ${detailsPaneMode === "preview" ? "active" : ""}`}
+                onClick={() => setDetailsPaneMode("preview")}
+              >
+                🖼️ Preview
+              </button>
+            </div>
+
+            {detailsPaneMode === "details" ? (
+              selectedItemDetails ? (
+                <>
+                  <div className="details-pane-header">
+                    <div className="details-pane-icon-container">
+                      {getItemIcon(selectedItemDetails, true)}
+                    </div>
+                    <div className="details-pane-title">
+                      {selectedItemDetails.name}
+                    </div>
+                    <div className="details-pane-subtitle">
+                      {fileTypeLabel(selectedItemDetails)}{" "}
+                      {detailsLoading && (
+                        <span
+                          style={{ marginLeft: "8px", opacity: 0.6 }}
+                          title="Loading details..."
+                        >
+                          ⚡
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="details-pane-title">
-                    {selectedItemDetails.name}
-                  </div>
-                  <div className="details-pane-subtitle">
-                    {fileTypeLabel(selectedItemDetails)}{" "}
-                    {detailsLoading && (
-                      <span
-                        style={{ marginLeft: "8px", opacity: 0.6 }}
-                        title="Loading details..."
-                      >
-                        ⚡
+
+                  <div className="details-pane-divider" />
+
+                  <div className="details-pane-section-title">Details</div>
+                  <div className="details-pane-info-list">
+                    <div className="details-pane-info-row">
+                      <span className="details-pane-info-label">Type</span>
+                      <span className="details-pane-info-value">
+                        {fileTypeLabel(selectedItemDetails)}
                       </span>
+                    </div>
+
+                    <div className="details-pane-info-row">
+                      <span className="details-pane-info-label">Location</span>
+                      <span className="details-pane-info-value">
+                        {selectedItemDetails.path}
+                      </span>
+                    </div>
+
+                    <div className="details-pane-info-row">
+                      <span className="details-pane-info-label">
+                        Date modified
+                      </span>
+                      <span className="details-pane-info-value">
+                        {formatDate(selectedItemDetails.modified)}
+                      </span>
+                    </div>
+
+                    {!selectedItemDetails.isDirectory && (
+                      <div className="details-pane-info-row">
+                        <span className="details-pane-info-label">Size</span>
+                        <span className="details-pane-info-value">
+                          {formatSize(selectedItemDetails.size)}
+                        </span>
+                      </div>
                     )}
-                  </div>
-                </div>
 
-                <div className="details-pane-divider" />
+                    {selectedItemDetails.isDirectory && (
+                      <div className="details-pane-info-row">
+                        <span className="details-pane-info-label">Contains</span>
+                        <span className="details-pane-info-value">
+                          {selectedFolderSizeDetails === "calculating" &&
+                            "Calculating..."}
+                          {selectedFolderSizeDetails &&
+                            selectedFolderSizeDetails !== "calculating" && (
+                              <>
+                                {selectedFolderSizeDetails.fileCount} files,{" "}
+                                {selectedFolderSizeDetails.folderCount} folders
+                              </>
+                            )}
+                          {!selectedFolderSizeDetails && "—"}
+                        </span>
+                      </div>
+                    )}
 
-                <div className="details-pane-section-title">Details</div>
-                <div className="details-pane-info-list">
-                  <div className="details-pane-info-row">
-                    <span className="details-pane-info-label">Type</span>
-                    <span className="details-pane-info-value">
-                      {fileTypeLabel(selectedItemDetails)}
-                    </span>
-                  </div>
-
-                  <div className="details-pane-info-row">
-                    <span className="details-pane-info-label">Location</span>
-                    <span className="details-pane-info-value">
-                      {selectedItemDetails.path}
-                    </span>
-                  </div>
-
-                  <div className="details-pane-info-row">
-                    <span className="details-pane-info-label">
-                      Date modified
-                    </span>
-                    <span className="details-pane-info-value">
-                      {formatDate(selectedItemDetails.modified)}
-                    </span>
-                  </div>
-
-                  {!selectedItemDetails.isDirectory && (
                     <div className="details-pane-info-row">
-                      <span className="details-pane-info-label">Size</span>
+                      <span className="details-pane-info-label">Attributes</span>
                       <span className="details-pane-info-value">
-                        {formatSize(selectedItemDetails.size)}
+                        {selectedItemDetails?.writable === false
+                          ? "Read-only"
+                          : "Normal (Read & Write)"}
                       </span>
                     </div>
-                  )}
-
-                  {selectedItemDetails.isDirectory && (
-                    <div className="details-pane-info-row">
-                      <span className="details-pane-info-label">Contains</span>
-                      <span className="details-pane-info-value">
-                        {selectedFolderSizeDetails === "calculating" &&
-                          "Calculating..."}
-                        {selectedFolderSizeDetails &&
-                          selectedFolderSizeDetails !== "calculating" && (
-                            <>
-                              {selectedFolderSizeDetails.fileCount} files,{" "}
-                              {selectedFolderSizeDetails.folderCount} folders
-                            </>
-                          )}
-                        {!selectedFolderSizeDetails && "—"}
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="details-pane-info-row">
-                    <span className="details-pane-info-label">Attributes</span>
-                    <span className="details-pane-info-value">
-                      {selectedItemDetails?.writable === false
-                        ? "Read-only"
-                        : "Normal (Read & Write)"}
-                    </span>
                   </div>
+                </>
+              ) : (
+                <div className="details-pane-empty">
+                  <div className="details-pane-empty-icon">📊</div>
+                  <div>Select a file or folder to view details.</div>
                 </div>
-              </>
+              )
             ) : (
-              <div className="details-pane-empty">
-                <div className="details-pane-empty-icon">📊</div>
-                <div>Select a file or folder to view details.</div>
-              </div>
+              selectedItemDetails ? (
+                selectedItemDetails.isDirectory ? (
+                  <div className="details-pane-empty">
+                    <div className="details-pane-empty-icon">📁</div>
+                    <div>Folders cannot be previewed. Select a file.</div>
+                  </div>
+                ) : (
+                  <FilePreview
+                    selectedItem={selectedItemDetails}
+                    onClose={() => setDetailsPaneMode("details")}
+                  />
+                )
+              ) : (
+                <div className="details-pane-empty">
+                  <div className="details-pane-empty-icon">🖼️</div>
+                  <div>Select a file to view preview.</div>
+                </div>
+              )
             )}
           </aside>
         )}
@@ -5287,7 +5422,7 @@ function App() {
           {/* Navigation history */}
           <button
             type="button"
-            className="statusbar-tool-btn"
+            className="statusbar-tool-btn1"
             onClick={() => setShowNavigationHistoryModal(true)}
             title="View navigation history"
           >
@@ -5297,7 +5432,7 @@ function App() {
           {/* Hidden files */}
           <button
             type="button"
-            className={`statusbar-tool-btn ${showHiddenFiles ? "active" : ""}`}
+            className={`statusbar-tool-btn3 ${showHiddenFiles ? "active" : ""}`}
             onClick={async () => {
               const nextValue = !showHiddenFiles;
               setShowHiddenFiles(nextValue);
@@ -5316,7 +5451,7 @@ function App() {
           {/* Clipboard history */}
           <button
             type="button"
-            className="statusbar-tool-btn"
+            className="statusbar-tool-btn2"
             onClick={() => setShowClipboardHistory(true)}
             title="Clipboard history"
           >
@@ -5328,7 +5463,7 @@ function App() {
           {/* AI Features */}
           <button
             type="button"
-            className={`statusbar-tool-btn2 ${currentPath === "tool:ai" ? "active" : ""}`}
+            className={`statusbar-tool-btn1 ${currentPath === "tool:ai" ? "active" : ""}`}
             onClick={() => {
               setCurrentPath("tool:ai");
               setAddressPath("AI Features");
@@ -5341,7 +5476,7 @@ function App() {
           {/* Archive Manager */}
           <button
             type="button"
-            className={`statusbar-tool-btn2 ${currentPath === "tool:archive" ? "active" : ""}`}
+            className={`statusbar-tool-btn3 ${currentPath === "tool:archive" ? "active" : ""}`}
             onClick={() => {
               setCurrentPath("tool:archive");
               setAddressPath("Archive Manager");
@@ -5354,7 +5489,7 @@ function App() {
           {/* Cloud Integration */}
           <button
             type="button"
-            className={`statusbar-tool-btn2 ${currentPath === "tool:cloud" ? "active" : ""}`}
+            className={`statusbar-tool-btn3 ${currentPath === "tool:cloud" ? "active" : ""}`}
             onClick={() => {
               setCurrentPath("tool:cloud");
               setAddressPath("Cloud Integration");
@@ -5367,7 +5502,7 @@ function App() {
           {/* Security Manager */}
           <button
             type="button"
-            className={`statusbar-tool-btn2 ${currentPath === "tool:security" ? "active" : ""}`}
+            className={`statusbar-tool-btn3 ${currentPath === "tool:security" ? "active" : ""}`}
             onClick={() => {
               setCurrentPath("tool:security");
               setAddressPath("Security Manager");
@@ -5383,7 +5518,7 @@ function App() {
           <div style={{ position: "relative" }}>
             <button
               type="button"
-              className={`statusbar-tool-btn2 ${activeDropdown === "more-tools" ? "active" : ""}`}
+              className={`statusbar-tool-btn ${activeDropdown === "more-tools" ? "active" : ""}`}
               onClick={() =>
                 setActiveDropdown(
                   activeDropdown === "more-tools" ? null : "more-tools",
@@ -5400,7 +5535,7 @@ function App() {
                 style={{
                   bottom: "100%",
                   top: "auto",
-                  left: 0,
+                  left: "-137px",
                   marginBottom: "4px",
                 }}
               >
@@ -5585,6 +5720,57 @@ function App() {
 
           <div className="context-separator" />
 
+          {/* Developer Tools */}
+          <div
+            className="context-item"
+            style={{ fontWeight: "bold", pointerEvents: "none", color: "#6b7280" }}
+          >
+            Developer Tools
+          </div>
+          <div
+            className="context-item"
+            onClick={() => {
+              setCurrentPath("tool:developer");
+              setAddressPath("Developer Tools");
+              closeContextMenu();
+            }}
+          >
+            🛠️ Open Developer Tools
+          </div>
+          {selectedItem && (
+            <>
+              <div
+                className="context-item"
+                onClick={async () => {
+                  await window.electronFeatures.developerContextAction("copy-path", selectedItem.path);
+                  closeContextMenu();
+                }}
+              >
+                📋 Copy Path
+              </div>
+              <div
+                className="context-item"
+                onClick={async () => {
+                  await window.electronFeatures.developerContextAction("copy-filename", selectedItem.path);
+                  closeContextMenu();
+                }}
+              >
+                📋 Copy Filename
+              </div>
+              <div
+                className="context-item"
+                onClick={async () => {
+                  await window.electronFeatures.developerContextAction("open-terminal", selectedItem.path);
+                  closeContextMenu();
+                }}
+              >
+                🖥️ Open Terminal Here
+              </div>
+            </>
+          )}
+
+          <div className="context-separator" />
+
           {/* Select All */}
           <div
             className="context-item"
@@ -5758,7 +5944,7 @@ function App() {
             <div className="phase4-header">
               <div>
                 <span className="phase4-header-icon">⚙️</span>
-                <div>
+                <div className="gyan">
                   <strong>Advanced File Operations</strong>
                   <small>
                     {currentPath || "Open a folder to use folder operations."}

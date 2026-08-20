@@ -717,3 +717,261 @@
     display: none;
   }
 }
+
+/* =========================================================
+   EMBEDDED IN DETAILS PANE OVERRIDES
+   ========================================================= */
+
+.details-pane .file-preview {
+  min-height: 0;
+  height: 100%;
+  border-radius: 0 0 12px 12px;
+  background-color: var(--color-bg-details);
+  color: var(--color-text-primary);
+}
+
+.details-pane .preview-header {
+  padding: 10px 12px;
+  min-height: auto;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.details-pane .preview-title-section {
+  gap: 8px;
+}
+
+.details-pane .preview-main-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+  font-size: 14px;
+}
+
+.details-pane .preview-title-section h2 {
+  font-size: 13px;
+  color: var(--color-text-primary);
+}
+
+.details-pane .preview-title-section p {
+  display: none; /* Hide subtitle */
+}
+
+.details-pane .preview-close-btn {
+  width: 26px;
+  height: 26px;
+  font-size: 18px;
+  border-radius: 4px;
+}
+
+.details-pane .preview-close-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.details-pane .preview-type-tabs {
+  padding: 0 8px;
+  min-height: auto;
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+  white-space: nowrap;
+  display: flex;
+  gap: 2px;
+}
+
+.details-pane .preview-type-tabs::-webkit-scrollbar {
+  height: 2px;
+}
+
+.details-pane .preview-type-tab {
+  padding: 0 8px;
+  font-size: 10px;
+  height: 30px;
+  flex-shrink: 0;
+}
+
+.details-pane .preview-type-tab.active {
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+}
+
+.details-pane .preview-body {
+  flex-direction: column; /* Stacked columns */
+  overflow: hidden;
+}
+
+.details-pane .preview-main-area {
+  flex: 1;
+  background: var(--color-bg-base); /* match window background */
+}
+
+.details-pane .preview-info-panel {
+  display: none !important; /* Hide redundant file details panel */
+}
+
+.details-pane .preview-toolbar,
+.details-pane .document-toolbar {
+  padding: 0 8px;
+  min-height: 36px;
+  background: var(--color-bg-details);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.details-pane .toolbar-group button,
+.details-pane .toolbar-group select,
+.details-pane .document-toolbar button {
+  height: 24px;
+  min-width: 24px;
+  padding: 0 5px;
+  font-size: 9px;
+  background: var(--color-bg-details);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.details-pane .toolbar-group button:hover,
+.details-pane .toolbar-group select:hover,
+.details-pane .document-toolbar button:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-text-primary);
+}
+
+.details-pane .zoom-value {
+  min-width: 30px;
+  font-size: 9px;
+  color: var(--color-text-secondary);
+}
+
+.details-pane .image-preview-area {
+  background-size: 10px 10px;
+  background-position: 0 0, 0 5px, 5px -5px, -5px 0;
+  /* background colors optimized for dark theme grid */
+  background-image: 
+    linear-gradient(45deg, rgba(255, 255, 255, 0.02) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(255, 255, 255, 0.02) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.02) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.02) 75%);
+}
+
+.details-pane .image-placeholder,
+.details-pane .document-placeholder {
+  width: 90%;
+  min-height: 180px;
+  padding: 15px;
+  background: var(--color-bg-details);
+  border: 1px solid var(--color-border);
+  box-shadow: none;
+}
+
+.details-pane .placeholder-image-icon,
+.details-pane .document-icon {
+  font-size: 32px;
+}
+
+.details-pane .image-placeholder strong,
+.details-pane .document-placeholder strong {
+  font-size: 11px;
+  color: var(--color-text-primary);
+}
+
+.details-pane .image-placeholder span,
+.details-pane .document-placeholder span {
+  font-size: 9px;
+  max-width: 100%;
+  color: var(--color-text-secondary);
+}
+
+.details-pane .document-placeholder button {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 10px;
+  margin-top: 6px;
+  background: var(--color-accent);
+}
+
+.details-pane .preview-navigation {
+  min-height: 36px;
+  padding: 0 8px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-details);
+}
+
+.details-pane .preview-navigation button {
+  height: 24px;
+  padding: 0 6px;
+  font-size: 9px;
+  background: var(--color-bg-details);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.details-pane .preview-navigation button:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-text-primary);
+}
+
+.details-pane .preview-navigation span {
+  font-size: 9px;
+  color: var(--color-text-secondary);
+}
+
+.details-pane .video-placeholder strong {
+  font-size: 11px;
+}
+
+.details-pane .video-play-icon {
+  width: 48px;
+  height: 48px;
+  font-size: 16px;
+}
+
+.details-pane .video-progress {
+  padding: 6px 10px;
+  background: var(--color-bg-details);
+}
+
+.details-pane .audio-cover {
+  width: 80px;
+  height: 80px;
+  font-size: 36px;
+  margin-bottom: 10px;
+}
+
+.details-pane .audio-title {
+  font-size: 12px;
+  color: var(--color-text-primary);
+}
+
+.details-pane .audio-progress {
+  margin-top: 15px;
+}
+
+.details-pane .audio-controls {
+  margin-top: 12px;
+  gap: 8px;
+}
+
+.details-pane .audio-controls button {
+  width: 28px;
+  height: 28px;
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-text-primary);
+}
+
+.details-pane .audio-controls .audio-play-btn {
+  width: 36px;
+  height: 36px;
+  background: var(--color-accent);
+}
+
+.details-pane .audio-volume {
+  margin-top: 10px;
+}
+
+.details-pane .preview-footer {
+  min-height: 32px;
+  padding: 0 12px;
+  background: var(--color-bg-details);
+  border-top: 1px solid var(--color-border);
+}

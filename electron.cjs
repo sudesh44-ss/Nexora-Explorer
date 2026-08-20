@@ -1,7 +1,23 @@
-const { app, BrowserWindow, ipcMain, shell, dialog } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, dialog, protocol, net } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
+const { pathToFileURL } = require("url");
+
+// Register standard protocol scheme before app is ready
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: "local-media",
+    privileges: {
+      standard: true,
+      bypassCSP: true,
+      stream: true,
+      supportFetchAPI: true,
+      secure: true,
+      corsEnabled: true,
+    },
+  },
+]);
 const hiddenFiles = require("./electron/services/hiddenFiles.cjs");
 
 const fileAssociation = require(
@@ -34,6 +50,7 @@ function createWindow(initialPath = null) {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false,
     },
   });
 
@@ -836,6 +853,22 @@ ipcMain.handle("get-folder-size", async (event, folderPath) => {
 // ============================================================
 
 app.whenReady().then(() => {
+  // Register protocol handler for local-media to load files safely in the renderer
+  protocol.handle("local-media", (request) => {
+    try {
+      const parsedUrl = new URL(request.url);
+      const filePath = parsedUrl.searchParams.get("path");
+      if (!filePath) {
+        throw new Error("Path parameter is missing in local-media URL");
+      }
+      const fileUrl = pathToFileURL(filePath).href;
+      return net.fetch(fileUrl);
+    } catch (error) {
+      console.error("local-media protocol error:", error);
+      return new Response("Error loading resource", { status: 500 });
+    }
+  });
+
   createWindow();
 
   app.on("activate", () => {
@@ -1145,80 +1178,40 @@ ipcMain.handle("create-item", async (event, parentPath, itemType) => {
 // Phase 2 — Advanced File Explorer Features
 // =============================
 
-// Recursive search with optional type filter.
-ipcMain.handle("search-directory", async (event, rootPath, query, filterType = "all", showHidden = false) => {
+// Recursive search with optional type filter and advanced options.
+ipcMain.handle("search-directory", async (event, rootPath, query, filterType = "all", showHidden = false, options = {}) => {
   try {
-    const normalizedQuery = String(query || "").trim().toLowerCase();
-    if (!rootPath || !normalizedQuery) return [];
-
-    const imageExt = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg", ".ico"];
-    const videoExt = [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".webm", ".m4v"];
-    const audioExt = [".mp3", ".wav", ".flac", ".aac", ".ogg", ".m4a", ".wma"];
-    const documentExt = [".txt", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".csv", ".rtf"];
-    const archiveExt = [".zip", ".rar", ".7z", ".tar", ".gz"];
-
-    const matchesFilter = (item) => {
-      if (filterType === "all") return true;
-      if (filterType === "folder") return item.isDirectory;
-      if (item.isDirectory) return false;
-
-      const ext = path.extname(item.name).toLowerCase();
-      if (filterType === "image") return imageExt.includes(ext);
-      if (filterType === "video") return videoExt.includes(ext);
-      if (filterType === "audio") return audioExt.includes(ext);
-      if (filterType === "document") return documentExt.includes(ext);
-      if (filterType === "archive") return archiveExt.includes(ext);
-      return true;
-    };
-
-    const results = [];
-    const pending = [rootPath];
-
-    while (pending.length && results.length < 5000) {
-      const current = pending.pop();
-
-      let entries;
-      try {
-        entries = await fs.promises.readdir(current, { withFileTypes: true });
-      } catch {
-        continue;
-      }
-
-      for (const entry of entries) {
-        const itemPath = path.join(current, entry.name);
-        const isDirectory = entry.isDirectory();
-
-        if (isDirectory) pending.push(itemPath);
-
-        if (!entry.name.toLowerCase().includes(normalizedQuery)) continue;
-        if (!matchesFilter({ name: entry.name, isDirectory })) continue;
-
-        let size = null;
-        let modified = null;
+    const searchService = require("./electron/services/search/searchService.cjs");
+    
+    // Resolve scope paths based on searchScope
+    let scopesList = [rootPath || "C:\\"];
+    if (options && options.searchScope) {
+      const scope = options.searchScope;
+      if (scope === "Current Folder" || scope === "Selected Folder") {
+        scopesList = [rootPath];
+      } else if (scope === "Entire Drive") {
+        const root = path.parse(rootPath || "C:\\").root;
+        scopesList = [root];
+      } else if (scope === "Multiple Drives") {
         try {
-          const stats = await fs.promises.stat(itemPath);
-          modified = stats.mtime.toISOString();
-          size = isDirectory ? null : stats.size;
-        } catch {}
-
-        results.push({
-          name: entry.name,
-          isDirectory,
-          path: itemPath,
-          size,
-          modified,
-        });
-
-        if (results.length >= 5000) break;
+          const driveDetection = require("./electron/services/storage/driveDetection.cjs");
+          const drives = await driveDetection.detectDrives();
+          scopesList = drives.map(d => d.mountPoint || `${d.letter}:\\`);
+        } catch (e) {
+          scopesList = [path.parse(rootPath || "C:\\").root];
+        }
       }
     }
 
-    return await hiddenFiles.decorateItemsWithHiddenStatus(
-      await hiddenFiles.filterHiddenItems(
-        results,
-        Boolean(showHidden),
-      ),
+    const results = await searchService.runSearch(
+      scopesList,
+      query,
+      filterType,
+      showHidden,
+      options,
+      event.sender
     );
+    return results;
   } catch (error) {
     return { error: error.message };
   }

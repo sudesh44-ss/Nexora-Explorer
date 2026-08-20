@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import "./FilePreview.css";
 
 function FilePreview({ selectedItem, onClose }) {
@@ -13,6 +13,118 @@ function FilePreview({ selectedItem, onClose }) {
   const [previewData, setPreviewData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Media playback & layout refs and states
+  const mediaRef = useRef(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(1.0);
+  const [imageDimensions, setImageDimensions] = useState(null);
+
+  // Sync isPlaying state changes to actual media element
+  useEffect(() => {
+    if (!mediaRef.current) return;
+    if (isPlaying) {
+      mediaRef.current.play().catch((err) => {
+        console.error("Playback failed:", err);
+        setIsPlaying(false);
+      });
+    } else {
+      mediaRef.current.pause();
+    }
+  }, [isPlaying]);
+
+  // Sync volume and muted state changes
+  useEffect(() => {
+    if (mediaRef.current) {
+      mediaRef.current.volume = volume;
+      mediaRef.current.muted = isMuted;
+    }
+  }, [selectedItem, activeType, volume, isMuted]);
+
+  // Reset states on item or tab type change
+  useEffect(() => {
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+    setImageDimensions(null);
+    setPlaybackSpeed("1x");
+    if (mediaRef.current) {
+      mediaRef.current.currentTime = 0;
+      mediaRef.current.playbackRate = 1.0;
+    }
+  }, [selectedItem, activeType]);
+
+  // Reset zoom and rotation on selected item change
+  useEffect(() => {
+    setZoom(100);
+    setRotation(0);
+  }, [selectedItem]);
+
+  // Formatting utility helpers
+  const formatSize = (bytes) => {
+    if (bytes === undefined || bytes === null || isNaN(bytes)) return "—";
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "—";
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleString();
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const formatTime = (secs) => {
+    if (isNaN(secs) || secs === Infinity || secs === null) return "00:00";
+    const m = Math.floor(secs / 60).toString().padStart(2, "0");
+    const s = Math.floor(secs % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  };
+
+  // Media control click handlers
+  const handleProgressClick = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const width = rect.width;
+    const newPercentage = clickX / width;
+    if (mediaRef.current && duration) {
+      const newTime = newPercentage * duration;
+      mediaRef.current.currentTime = newTime;
+      setCurrentTime(newTime);
+    }
+  };
+
+  const handleVolumeClick = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const width = rect.width;
+    const newVolume = Math.max(0, Math.min(1, clickX / width));
+    setVolume(newVolume);
+    setIsMuted(false);
+    if (mediaRef.current) {
+      mediaRef.current.volume = newVolume;
+      mediaRef.current.muted = false;
+    }
+  };
+
+  const toggleFullScreen = () => {
+    if (mediaRef.current) {
+      if (mediaRef.current.requestFullscreen) {
+        mediaRef.current.requestFullscreen();
+      } else if (mediaRef.current.webkitRequestFullscreen) {
+        mediaRef.current.webkitRequestFullscreen();
+      } else if (mediaRef.current.msRequestFullscreen) {
+        mediaRef.current.msRequestFullscreen();
+      }
+    }
+  };
 
   useEffect(() => {
     if (!selectedItem) {
@@ -242,10 +354,16 @@ function FilePreview({ selectedItem, onClose }) {
               <div className="image-preview-area" style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", width: "100%", overflow: "hidden" }}>
                 {loading && <div style={{ color: "#666" }}>Loading image preview...</div>}
                 {error && <div style={{ color: "#ff4343" }}>⚠️ {error}</div>}
-                {!loading && !error && previewData && previewData.type === "image" && (
+                {!loading && !error && selectedItem && (
                   <img
-                    src={previewData.data}
+                    src={`local-media://preview?path=${encodeURIComponent(selectedItem.path)}`}
                     alt={selectedItem?.name}
+                    onLoad={(e) => {
+                      setImageDimensions({
+                        width: e.target.naturalWidth,
+                        height: e.target.naturalHeight
+                      });
+                    }}
                     style={{
                       transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
                       maxWidth: "100%",
@@ -261,15 +379,15 @@ function FilePreview({ selectedItem, onClose }) {
 
               <div className="preview-navigation">
 
-                <button>
+                <button disabled>
                   ← Previous
                 </button>
 
                 <span>
-                  0 / 0
+                  {selectedItem ? "1 / 1" : "0 / 0"}
                 </span>
 
-                <button>
+                <button disabled>
                   Next →
                 </button>
 
@@ -291,14 +409,17 @@ function FilePreview({ selectedItem, onClose }) {
                     onClick={() =>
                       setIsPlaying(!isPlaying)
                     }
+                    title={isPlaying ? "Pause" : "Play"}
                   >
                     {isPlaying ? "❚❚" : "▶"}
                   </button>
 
                   <button
-                    onClick={() =>
-                      setIsPlaying(false)
-                    }
+                    onClick={() => {
+                      setIsPlaying(false);
+                      if (mediaRef.current) mediaRef.current.currentTime = 0;
+                    }}
+                    title="Stop"
                   >
                     ■
                   </button>
@@ -312,15 +433,19 @@ function FilePreview({ selectedItem, onClose }) {
                     onClick={() =>
                       setIsMuted(!isMuted)
                     }
+                    title={isMuted ? "Unmute" : "Mute"}
                   >
                     {isMuted ? "🔇" : "🔊"}
                   </button>
 
                   <select
                     value={playbackSpeed}
-                    onChange={(e) =>
-                      setPlaybackSpeed(e.target.value)
-                    }
+                    onChange={(e) => {
+                      const speedStr = e.target.value;
+                      setPlaybackSpeed(speedStr);
+                      const speedVal = parseFloat(speedStr.replace("x", ""));
+                      if (mediaRef.current) mediaRef.current.playbackRate = speedVal;
+                    }}
                   >
                     <option value="0.5x">0.5x</option>
                     <option value="1x">1x</option>
@@ -329,7 +454,7 @@ function FilePreview({ selectedItem, onClose }) {
                     <option value="2x">2x</option>
                   </select>
 
-                  <button>
+                  <button onClick={toggleFullScreen} title="Fullscreen">
                     ⛶
                   </button>
 
@@ -338,35 +463,38 @@ function FilePreview({ selectedItem, onClose }) {
               </div>
 
 
-              <div className="video-preview-area">
-
-                <div className="video-placeholder">
-
-                  <div className="video-play-icon">
-                    {isPlaying ? "❚❚" : "▶"}
+              <div className="video-preview-area" style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", width: "100%", overflow: "hidden", backgroundColor: "#000" }}>
+                {loading && <div style={{ color: "#666" }}>Loading video preview...</div>}
+                {error && <div style={{ color: "#ff4343" }}>⚠️ {error}</div>}
+                {!loading && !error && selectedItem && (
+                  <video
+                    ref={mediaRef}
+                    src={`local-media://preview?path=${encodeURIComponent(selectedItem.path)}`}
+                    style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+                    onTimeUpdate={(e) => setCurrentTime(e.target.currentTime)}
+                    onLoadedMetadata={(e) => setDuration(e.target.duration)}
+                    onEnded={() => setIsPlaying(false)}
+                    onClick={() => setIsPlaying(!isPlaying)}
+                  />
+                )}
+                {!selectedItem && (
+                  <div className="video-placeholder">
+                    <div className="video-play-icon">▶</div>
+                    <strong>No Video Selected</strong>
+                    <span>MP4, MKV, AVI, MOV, WebM</span>
                   </div>
-
-                  <strong>
-                    No Video Selected
-                  </strong>
-
-                  <span>
-                    MP4, MKV, AVI, MOV, WebM
-                  </span>
-
-                </div>
-
+                )}
               </div>
 
 
               <div className="video-progress">
 
-                <div className="progress-track">
-                  <div className="progress-value"></div>
+                <div className="progress-track" onClick={handleProgressClick}>
+                  <div className="progress-value" style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}></div>
                 </div>
 
                 <div className="video-time">
-                  00:00 / 00:00
+                  {formatTime(currentTime)} / {formatTime(duration)}
                 </div>
 
               </div>
@@ -378,6 +506,15 @@ function FilePreview({ selectedItem, onClose }) {
           {/* AUDIO */}
           {activeType === "audio" && (
             <>
+              {selectedItem && (
+                <audio
+                  ref={mediaRef}
+                  src={`local-media://preview?path=${encodeURIComponent(selectedItem.path)}`}
+                  onTimeUpdate={(e) => setCurrentTime(e.target.currentTime)}
+                  onLoadedMetadata={(e) => setDuration(e.target.duration)}
+                  onEnded={() => setIsPlaying(false)}
+                />
+              )}
 
               <div className="audio-preview-area">
 
@@ -386,27 +523,27 @@ function FilePreview({ selectedItem, onClose }) {
                 </div>
 
                 <div className="audio-title">
-                  No Audio Selected
+                  {selectedItem?.name || "No Audio Selected"}
                 </div>
 
                 <div className="audio-format">
-                  MP3, WAV, FLAC, AAC, OGG, M4A
+                  {selectedItem ? selectedItem.name.split(".").pop().toUpperCase() : "MP3, WAV, FLAC, AAC, OGG, M4A"}
                 </div>
 
 
                 <div className="audio-progress">
 
-                  <div className="progress-track">
-                    <div className="progress-value"></div>
+                  <div className="progress-track" onClick={handleProgressClick}>
+                    <div className="progress-value" style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}></div>
                   </div>
 
                   <div className="audio-time">
                     <span>
-                      00:00
+                      {formatTime(currentTime)}
                     </span>
 
                     <span>
-                      00:00
+                      {formatTime(duration)}
                     </span>
                   </div>
 
@@ -415,7 +552,7 @@ function FilePreview({ selectedItem, onClose }) {
 
                 <div className="audio-controls">
 
-                  <button>
+                  <button onClick={() => { if (mediaRef.current) mediaRef.current.currentTime = 0; }} title="Restart">
                     ⏮
                   </button>
 
@@ -424,11 +561,12 @@ function FilePreview({ selectedItem, onClose }) {
                     onClick={() =>
                       setIsPlaying(!isPlaying)
                     }
+                    title={isPlaying ? "Pause" : "Play"}
                   >
                     {isPlaying ? "❚❚" : "▶"}
                   </button>
 
-                  <button>
+                  <button onClick={() => { if (mediaRef.current) mediaRef.current.currentTime = duration; }} title="End">
                     ⏭
                   </button>
 
@@ -441,12 +579,13 @@ function FilePreview({ selectedItem, onClose }) {
                     onClick={() =>
                       setIsMuted(!isMuted)
                     }
+                    title={isMuted ? "Unmute" : "Mute"}
                   >
                     {isMuted ? "🔇" : "🔊"}
                   </button>
 
-                  <div className="volume-track">
-                    <div className="volume-value"></div>
+                  <div className="volume-track" onClick={handleVolumeClick}>
+                    <div className="volume-value" style={{ width: `${isMuted ? 0 : volume * 100}%` }}></div>
                   </div>
 
                 </div>
@@ -465,19 +604,19 @@ function FilePreview({ selectedItem, onClose }) {
 
                 <div className="toolbar-group">
 
-                  <button>
+                  <button onClick={() => setZoom((z) => Math.max(25, z - 10))} title="Zoom out">
                     −
                   </button>
 
                   <span>
-                    100%
+                    {zoom}%
                   </span>
 
-                  <button>
+                  <button onClick={() => setZoom((z) => Math.min(300, z + 10))} title="Zoom in">
                     +
                   </button>
 
-                  <button>
+                  <button onClick={() => setZoom(100)} title="Reset zoom">
                     ⛶
                   </button>
 
@@ -492,12 +631,13 @@ function FilePreview({ selectedItem, onClose }) {
                         Math.max(currentPage - 1, 1)
                       )
                     }
+                    disabled={previewData?.type !== "pdf"}
                   >
                     ←
                   </button>
 
                   <span>
-                    Page {currentPage} / 0
+                    Page {currentPage} / {previewData?.type === "pdf" ? "—" : "1"}
                   </span>
 
                   <button
@@ -506,6 +646,7 @@ function FilePreview({ selectedItem, onClose }) {
                         currentPage + 1
                       )
                     }
+                    disabled={previewData?.type !== "pdf"}
                   >
                     →
                   </button>
@@ -513,37 +654,58 @@ function FilePreview({ selectedItem, onClose }) {
                 </div>
 
 
-                <button>
+                <button onClick={() => window.fileExplorer.openItem(selectedItem.path)}>
                   Open externally
                 </button>
 
               </div>
 
 
-              <div className="document-preview-area">
-
-                <div className="document-placeholder">
-
-                  <div className="document-icon">
-                    ▤
+              <div className="document-preview-area" style={{ width: "100%", height: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                {loading && <div style={{ color: "#666", padding: "20px", textAlign: "center" }}>Loading document preview...</div>}
+                {error && <div style={{ color: "#ff4343", padding: "20px", textAlign: "center" }}>⚠️ {error}</div>}
+                {!loading && !error && selectedItem && previewData && (
+                  previewData.type === "text" ? (
+                    <pre style={{
+                      fontSize: `${zoom * 0.14}rem`,
+                      width: "100%",
+                      height: "100%",
+                      overflow: "auto",
+                      textAlign: "left",
+                      margin: 0,
+                      padding: "15px",
+                      backgroundColor: "#1e1e1e",
+                      color: "#d4d4d4",
+                      fontFamily: "Consolas, 'Courier New', monospace",
+                      whiteSpace: "pre-wrap",
+                      boxSizing: "border-box"
+                    }}>
+                      {previewData.preview}
+                    </pre>
+                  ) : previewData.type === "pdf" ? (
+                    <iframe
+                      src={`local-media://preview?path=${encodeURIComponent(selectedItem.path)}`}
+                      style={{ width: "100%", height: "100%", border: "none", backgroundColor: "#fff" }}
+                      title="PDF Preview"
+                    />
+                  ) : (
+                    <div className="document-placeholder">
+                      <div className="document-icon">▤</div>
+                      <strong>{selectedItem?.name}</strong>
+                      <span>Preview not supported directly. You can open this file in the default application.</span>
+                      <button onClick={() => window.fileExplorer.openItem(selectedItem.path)}>
+                        Open Externally
+                      </button>
+                    </div>
+                  )
+                )}
+                {!selectedItem && (
+                  <div className="document-placeholder">
+                    <div className="document-icon">▤</div>
+                    <strong>No Document Selected</strong>
+                    <span>TXT, JSON, CSV, XML, HTML, Markdown, JS, JSX, CSS, TS, TSX, Python, Java, C/C++, PDF, DOCX, XLSX, PPTX</span>
                   </div>
-
-                  <strong>
-                    No Document Selected
-                  </strong>
-
-                  <span>
-                    TXT, JSON, CSV, XML, HTML, Markdown,
-                    JS, JSX, CSS, TS, TSX, Python, Java,
-                    C/C++, PDF, DOCX, XLSX, PPTX
-                  </span>
-
-                  <button>
-                    Open File
-                  </button>
-
-                </div>
-
+                )}
               </div>
 
             </>
@@ -573,32 +735,32 @@ function FilePreview({ selectedItem, onClose }) {
 
             <div className="info-row">
               <span>Name</span>
-              <strong>—</strong>
+              <strong>{selectedItem?.name || "—"}</strong>
             </div>
 
             <div className="info-row">
               <span>Type</span>
-              <strong>—</strong>
+              <strong>{selectedItem?.isDirectory ? "Folder" : (selectedItem?.name.split(".").pop().toUpperCase() + " File")}</strong>
             </div>
 
             <div className="info-row">
               <span>Size</span>
-              <strong>—</strong>
+              <strong>{formatSize(selectedItem?.size)}</strong>
             </div>
 
             <div className="info-row">
               <span>Location</span>
-              <strong>—</strong>
+              <strong style={{ wordBreak: "break-all" }}>{selectedItem?.path || "—"}</strong>
             </div>
 
             <div className="info-row">
               <span>Created</span>
-              <strong>—</strong>
+              <strong>{formatDate(previewData?.created)}</strong>
             </div>
 
             <div className="info-row">
               <span>Modified</span>
-              <strong>—</strong>
+              <strong>{formatDate(selectedItem?.modified || previewData?.modified)}</strong>
             </div>
 
           </div>
@@ -615,32 +777,17 @@ function FilePreview({ selectedItem, onClose }) {
 
               <div className="info-row">
                 <span>Resolution</span>
-                <strong>—</strong>
+                <strong>{imageDimensions ? `${imageDimensions.width} x ${imageDimensions.height}` : "—"}</strong>
               </div>
 
               <div className="info-row">
                 <span>Dimensions</span>
-                <strong>—</strong>
+                <strong>{imageDimensions ? `${imageDimensions.width}px x ${imageDimensions.height}px` : "—"}</strong>
               </div>
 
               <div className="info-row">
                 <span>Format</span>
-                <strong>—</strong>
-              </div>
-
-              <div className="info-row">
-                <span>Color</span>
-                <strong>—</strong>
-              </div>
-
-              <div className="info-row">
-                <span>Camera</span>
-                <strong>—</strong>
-              </div>
-
-              <div className="info-row">
-                <span>Date Taken</span>
-                <strong>—</strong>
+                <strong>{selectedItem?.name.split(".").pop().toUpperCase() || "—"}</strong>
               </div>
 
             </div>
@@ -658,27 +805,12 @@ function FilePreview({ selectedItem, onClose }) {
 
               <div className="info-row">
                 <span>Duration</span>
-                <strong>—</strong>
+                <strong>{formatTime(duration)}</strong>
               </div>
 
               <div className="info-row">
-                <span>Resolution</span>
-                <strong>—</strong>
-              </div>
-
-              <div className="info-row">
-                <span>FPS</span>
-                <strong>—</strong>
-              </div>
-
-              <div className="info-row">
-                <span>Codec</span>
-                <strong>—</strong>
-              </div>
-
-              <div className="info-row">
-                <span>Bitrate</span>
-                <strong>—</strong>
+                <span>Format</span>
+                <strong>{selectedItem?.name.split(".").pop().toUpperCase() || "—"}</strong>
               </div>
 
             </div>
@@ -696,32 +828,17 @@ function FilePreview({ selectedItem, onClose }) {
 
               <div className="info-row">
                 <span>Title</span>
-                <strong>—</strong>
+                <strong>{selectedItem?.name || "—"}</strong>
               </div>
 
               <div className="info-row">
-                <span>Artist</span>
-                <strong>—</strong>
+                <span>Duration</span>
+                <strong>{formatTime(duration)}</strong>
               </div>
 
               <div className="info-row">
-                <span>Album</span>
-                <strong>—</strong>
-              </div>
-
-              <div className="info-row">
-                <span>Genre</span>
-                <strong>—</strong>
-              </div>
-
-              <div className="info-row">
-                <span>Year</span>
-                <strong>—</strong>
-              </div>
-
-              <div className="info-row">
-                <span>Bitrate</span>
-                <strong>—</strong>
+                <span>Format</span>
+                <strong>{selectedItem?.name.split(".").pop().toUpperCase() || "—"}</strong>
               </div>
 
             </div>
@@ -738,18 +855,8 @@ function FilePreview({ selectedItem, onClose }) {
               </div>
 
               <div className="info-row">
-                <span>Pages</span>
-                <strong>—</strong>
-              </div>
-
-              <div className="info-row">
-                <span>Author</span>
-                <strong>—</strong>
-              </div>
-
-              <div className="info-row">
                 <span>Format</span>
-                <strong>—</strong>
+                <strong>{selectedItem?.name.split(".").pop().toUpperCase() || "—"}</strong>
               </div>
 
             </div>
@@ -765,8 +872,7 @@ function FilePreview({ selectedItem, onClose }) {
             </div>
 
             <div className="metadata-empty">
-              Metadata will appear when a file
-              is selected.
+              {selectedItem ? `Previewing ${selectedItem.name}` : "Metadata will appear when a file is selected."}
             </div>
 
           </div>

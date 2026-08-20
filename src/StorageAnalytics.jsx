@@ -1,11 +1,29 @@
-import { useState } from "react";
+/* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
+import { useState, useEffect } from "react";
 import "./StorageAnalytics.css";
 
-function StorageAnalytics({ currentPath, items, onClose }) {
+function StorageAnalytics({ currentPath, onClose }) {
   const [activeTab, setActiveTab] = useState("overview");
-  const [selectedDrive, setSelectedDrive] = useState("C:");
-  const [cleanupType, setCleanupType] = useState("old");
+  const [drivesList, setDrivesList] = useState([]);
+  const [selectedDrive, setSelectedDrive] = useState("");
+  const [scanPath, setScanPath] = useState("");
+  
+  // Scanning state
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [scanFilesCount, setScanFilesCount] = useState(0);
+  const [scanFoldersCount, setScanFoldersCount] = useState(0);
+  const [scanBytesCount, setScanBytesCount] = useState(0);
+  const [scanCurrentPath, setScanCurrentPath] = useState("");
+  
+  // Scanned Results
+  const [scanResults, setScanResults] = useState(null);
+  
+  // Sub-filters
+  const [cleanupType, setCleanupType] = useState("temp");
   const [chartType, setChartType] = useState("donut");
+  const [topFilesLimit, setTopFilesLimit] = useState(10);
+  const [topFilesSort, setTopFilesSort] = useState("largest");
 
   const tabs = [
     { id: "overview", label: "Overview", icon: "◉" },
@@ -16,1500 +34,808 @@ function StorageAnalytics({ currentPath, items, onClose }) {
     { id: "visualization", label: "Visualization", icon: "◒" },
   ];
 
-  const drives = [
-    {
-      name: "C:",
-      label: "System",
-      total: "1 TB",
-      used: "720 GB",
-      free: "280 GB",
-      percentage: 72,
-    },
-    {
-      name: "D:",
-      label: "Data",
-      total: "2 TB",
-      used: "1.1 TB",
-      free: "900 GB",
-      percentage: 55,
-    },
-  ];
+  // Helper: Format bytes
+  const formatBytes = (bytes) => {
+    if (bytes === null || bytes === undefined || isNaN(bytes)) return "—";
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const dm = 2;
+    const sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+  };
 
-  const fileTypes = [
-    { name: "Videos", size: "420 GB", percentage: 58 },
-    { name: "Games", size: "180 GB", percentage: 25 },
-    { name: "Pictures", size: "80 GB", percentage: 11 },
-    { name: "Documents", size: "25 GB", percentage: 4 },
-    { name: "Others", size: "15 GB", percentage: 2 },
-  ];
+  // Load drives inventory
+  const loadDrives = async () => {
+    const res = await window.electronFeatures.storageGetDrives();
+    if (res.success && res.drives.length > 0) {
+      setDrivesList(res.drives);
+      
+      // Auto select C: or first drive
+      const defaultDrive = res.drives.find(d => d.driveLetter.startsWith("C")) || res.drives[0];
+      setSelectedDrive(defaultDrive.driveLetter);
+      setScanPath(defaultDrive.driveLetter + "\\");
+      
+      // Check cache for default drive
+      loadCache(defaultDrive.driveLetter + "\\");
+    }
+  };
 
-  const largestFiles = [
-    {
-      name: "Project_Backup.zip",
-      path: "C:\\Backups",
-      size: "42.8 GB",
-      type: "Archive",
-    },
-    {
-      name: "video_project.mp4",
-      path: "D:\\Videos",
-      size: "18.4 GB",
-      type: "Video",
-    },
-    {
-      name: "Windows_Backup.iso",
-      path: "D:\\ISO",
-      size: "12.6 GB",
-      type: "ISO",
-    },
-    {
-      name: "Adobe_Project.aep",
-      path: "D:\\Projects",
-      size: "8.9 GB",
-      type: "Project",
-    },
-    {
-      name: "Database_Backup.sql",
-      path: "C:\\Database",
-      size: "6.4 GB",
-      type: "Database",
-    },
-  ];
+  const loadCache = async (targetPath) => {
+    const res = await window.electronFeatures.storageGetCache(targetPath);
+    if (res.success && res.data) {
+      setScanResults(res.data);
+    } else {
+      setScanResults(null);
+    }
+  };
 
-  const largestFolders = [
-    {
-      name: "Videos",
-      path: "D:\\Videos",
-      size: "420 GB",
-      items: "12,420",
-    },
-    {
-      name: "Games",
-      path: "D:\\Games",
-      size: "180 GB",
-      items: "48,210",
-    },
-    {
-      name: "Projects",
-      path: "D:\\Projects",
-      size: "72 GB",
-      items: "8,420",
-    },
-    {
-      name: "Pictures",
-      path: "C:\\Users\\Pictures",
-      size: "80 GB",
-      items: "16,850",
-    },
-  ];
+  useEffect(() => {
+    loadDrives();
 
-  const cleanupOptions = [
-    {
-      id: "old",
-      title: "Old Files",
-      description: "Files that have not been modified for a long time.",
-      count: 1284,
-      size: "18.2 GB",
-    },
-    {
-      id: "temporary",
-      title: "Temporary Files",
-      description: "Temporary files that may no longer be required.",
-      count: 642,
-      size: "6.8 GB",
-    },
-    {
-      id: "large",
-      title: "Large Files",
-      description: "Files consuming unusually large amounts of storage.",
-      count: 86,
-      size: "72.4 GB",
-    },
-    {
-      id: "duplicate",
-      title: "Duplicate Files",
-      description: "Potential duplicate files using unnecessary storage.",
-      count: 342,
-      size: "12.7 GB",
-    },
-    {
-      id: "empty",
-      title: "Empty Folders",
-      description: "Folders containing no files or subfolders.",
-      count: 218,
-      size: "0 GB",
-    },
-    {
-      id: "unused",
-      title: "Unused Files",
-      description: "Files that appear to be rarely or never accessed.",
-      count: 928,
-      size: "24.6 GB",
-    },
-  ];
+    // Subscribe to scan progress
+    const unsubProgress = window.electronFeatures.onStorageProgress((data) => {
+      setScanProgress(data.progress);
+      setScanFilesCount(data.filesScanned);
+      setScanFoldersCount(data.foldersScanned);
+      setScanBytesCount(data.bytesAnalyzed);
+      setScanCurrentPath(data.currentPath);
+    });
 
-  const selectedCleanup = cleanupOptions.find(
-    (item) => item.id === cleanupType
-  );
+    return () => {
+      unsubProgress();
+    };
+  }, []);
 
-    const filesOnly = items ? items.filter(it => !it.isDirectory) : [];
-  const foldersOnly = items ? items.filter(it => it.isDirectory) : [];
+  const handleDriveChange = (driveLetter) => {
+    setSelectedDrive(driveLetter);
+    const fullP = driveLetter + "\\";
+    setScanPath(fullP);
+    loadCache(fullP);
+  };
 
-  const dynamicLargestFiles = filesOnly.length > 0
-    ? [...filesOnly]
-        .sort((a, b) => b.size - a.size)
-        .slice(0, 5)
-        .map(it => ({
-          name: it.name,
-          path: it.path,
-          size: (it.size / (1024 * 1024)).toFixed(2) + " MB",
-          type: it.name.split(".").pop().toUpperCase()
-        }))
-    : largestFiles;
+  const handleChooseCustomFolder = async () => {
+    const res = await window.electronFeatures.chooseFolder();
+    if (res.success && !res.canceled && res.path) {
+      setScanPath(res.path);
+      loadCache(res.path);
+    }
+  };
 
-  const dynamicLargestFolders = foldersOnly.length > 0
-    ? foldersOnly.slice(0, 5).map(it => ({
-        name: it.name,
-        path: it.path,
-        size: "—",
-        items: "Click to scan"
-      }))
-    : largestFolders;
+  // Start Asynchronous Drive/Folder Scan
+  const handleStartScan = async () => {
+    if (!scanPath) return;
+    setIsScanning(true);
+    setScanProgress(0);
+    setScanFilesCount(0);
+    setScanFoldersCount(0);
+    setScanBytesCount(0);
+    setScanCurrentPath("Initializing scanner queue...");
 
-return (
+    const res = await window.electronFeatures.storageScanStart(scanPath);
+    setIsScanning(false);
+    if (res.success) {
+      setScanResults(res);
+    } else {
+      alert(`Scan failed or aborted: ${res.error}`);
+    }
+  };
+
+  // Cancel Scan
+  const handleCancelScan = async () => {
+    await window.electronFeatures.storageScanCancel();
+    setIsScanning(false);
+  };
+
+  // Clear Storage Cache
+  const handleClearCache = async () => {
+    if (!confirm("Are you sure you want to clear all cached storage scan results?")) return;
+    const res = await window.electronFeatures.storageClearCache();
+    if (res.success) {
+      setScanResults(null);
+      alert("Cache cleared.");
+    }
+  };
+
+  // Deletion approved cleanup candidates
+  const handleDeleteCandidate = async (itemPath) => {
+    const fileName = itemPath.split(/[/\\]/).pop();
+    if (!confirm(`⚠️ WARNING: Are you sure you want to PERMANENTLY delete:\n\n${fileName}\n\nLocation: ${itemPath}\n\nThis action cannot be undone.`)) return;
+
+    const res = await window.electronFeatures.storageDeleteItem(itemPath);
+    if (res.success) {
+      alert("✓ Item deleted successfully.");
+      // Rescan or remove file from state
+      if (scanResults) {
+        // Deep copy results and filter out the deleted item from categories
+        const copy = JSON.parse(JSON.stringify(scanResults));
+        
+        // Remove from largest files
+        copy.largestFiles = copy.largestFiles.filter(f => f.path !== itemPath);
+        
+        // Remove from cleanup categories
+        if (copy.cleanupCandidates) {
+          copy.cleanupCandidates.temp = copy.cleanupCandidates.temp.filter(f => f.path !== itemPath);
+          copy.cleanupCandidates.cache = copy.cleanupCandidates.cache.filter(f => f.path !== itemPath);
+          copy.cleanupCandidates.empty = copy.cleanupCandidates.empty.filter(f => f.path !== itemPath);
+          copy.cleanupCandidates.large = copy.cleanupCandidates.large.filter(f => f.path !== itemPath);
+          copy.cleanupCandidates.old = copy.cleanupCandidates.old.filter(f => f.path !== itemPath);
+        }
+        
+        setScanResults(copy);
+      }
+    } else {
+      alert(`❌ Deletion failed: ${res.error}`);
+    }
+  };
+
+  // ----------------------------------------------------------
+  // Process lists for display
+  // ----------------------------------------------------------
+  const getFileCategoriesList = () => {
+    if (!scanResults || !scanResults.categoryStats) return [];
+    
+    const totalBytes = scanResults.bytesAnalyzed || 1;
+    return Object.entries(scanResults.categoryStats).map(([name, stats]) => ({
+      name,
+      size: stats.size,
+      count: stats.count,
+      percentage: Math.round((stats.size / totalBytes) * 100)
+    })).sort((a, b) => b.size - a.size);
+  };
+
+  const getSortedFiles = () => {
+    if (!scanResults || !scanResults.largestFiles) return [];
+    
+    let list = [...scanResults.largestFiles];
+    if (topFilesSort === "smallest") {
+      list.sort((a, b) => a.size - b.size);
+    } else {
+      list.sort((a, b) => b.size - a.size);
+    }
+    return list.slice(0, topFilesLimit);
+  };
+
+  const getCleanupList = () => {
+    if (!scanResults || !scanResults.cleanupCandidates) return [];
+    return scanResults.cleanupCandidates[cleanupType] || [];
+  };
+
+  const currentDriveObj = drivesList.find(d => d.driveLetter === selectedDrive);
+
+  return (
     <div className="storage-analytics">
 
       {/* =====================================================
           HEADER
           ===================================================== */}
-
       <div className="storage-header">
-
         <div className="storage-title-section">
-
-          <div className="storage-main-icon">
-            📊
-          </div>
-
+          <div className="storage-main-icon">📊</div>
           <div>
             <h2>Storage Analytics</h2>
-
-            <p>
-              Analyze disk usage, large files and storage
-              consumption in {currentPath}
-            </p>
+            <p>Analyze disk usage, categories, and cleanup candidates in {scanPath || currentPath}</p>
           </div>
-
         </div>
 
         <div className="storage-scan-status">
-
           <span className="storage-status-dot"></span>
-
-          <span>
-            Scanner
-          </span>
-
-          <strong>
-            Ready
-          </strong>
-
+          <span>Scanner</span>
+          <strong>{isScanning ? "Scanning..." : "Ready"}</strong>
         </div>
 
-        <button
-          className="storage-close-btn"
-          onClick={onClose}
-        >
-          ×
-        </button>
-
+        <button className="storage-close-btn" onClick={onClose}>×</button>
       </div>
-
 
       {/* =====================================================
           NAVIGATION
           ===================================================== */}
-
       <div className="storage-navigation">
-
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            className={
-              activeTab === tab.id
-                ? "storage-nav-item active"
-                : "storage-nav-item"
-            }
+            className={activeTab === tab.id ? "storage-nav-item active" : "storage-nav-item"}
             onClick={() => setActiveTab(tab.id)}
           >
-
-            <span>
-              {tab.icon}
-            </span>
-
+            <span>{tab.icon}</span>
             {tab.label}
-
           </button>
         ))}
-
       </div>
-
 
       {/* =====================================================
           BODY
           ===================================================== */}
-
       <div className="storage-body">
 
+        {/* Scan overlay */}
+        {isScanning && (
+          <div style={{
+            position: "absolute",
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: "rgba(255, 255, 255, 0.9)",
+            zIndex: 10,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "30px",
+            textAlign: "center"
+          }}>
+            <h3 style={{ marginBottom: "15px" }}>Scanning Disk / Directory</h3>
+            <p style={{ color: "#666", fontSize: "12px", maxWidth: "450px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              Current: {scanCurrentPath}
+            </p>
+
+            <div style={{ width: "100%", maxWidth: "400px", margin: "20px 0" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", marginBottom: "4px" }}>
+                <span>Folders: {scanFoldersCount} | Files: {scanFilesCount}</span>
+                <span>{scanProgress > 0 ? `${scanProgress}%` : "Calculating..."}</span>
+              </div>
+              <div className="ocr-progress-track" style={{ height: "10px", borderRadius: "5px" }}>
+                <div className="ocr-progress-value" style={{ width: scanProgress > 0 ? `${scanProgress}%` : "30%" }} />
+              </div>
+              <span style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px", display: "block" }}>
+                Bytes Scanned: {formatBytes(scanBytesCount)}
+              </span>
+            </div>
+
+            <button className="ocr-danger-btn" onClick={handleCancelScan}>
+              Cancel Scan
+            </button>
+          </div>
+        )}
 
         {/* =================================================
-            OVERVIEW
+            1. OVERVIEW
             ================================================= */}
-
         {activeTab === "overview" && (
           <div className="storage-page">
-
             <div className="storage-page-header">
-
               <div>
-                <h3>
-                  Storage Overview
-                </h3>
-
-                <p>
-                  View storage usage across available drives.
-                </p>
+                <h3>Storage Overview</h3>
+                <p>View storage usage across drives or custom subdirectories.</p>
               </div>
 
-              <div className="storage-header-actions">
-
+              <div className="storage-header-actions" style={{ display: "flex", gap: "10px", alignItems: "center" }}>
                 <select
                   value={selectedDrive}
-                  onChange={(e) =>
-                    setSelectedDrive(e.target.value)
-                  }
+                  onChange={(e) => handleDriveChange(e.target.value)}
+                  style={{ padding: "4px", fontSize: "12px" }}
                 >
-
-                  <option>C:</option>
-                  <option>D:</option>
-
+                  {drivesList.map(d => (
+                    <option key={d.driveLetter} value={d.driveLetter}>
+                      Drive {d.driveLetter} ({d.label})
+                    </option>
+                  ))}
                 </select>
 
-                <button className="storage-primary-btn">
-                  Scan Drive
+                <button className="storage-secondary-btn" onClick={handleChooseCustomFolder}>
+                  Choose Folder
                 </button>
 
+                <button className="storage-primary-btn" onClick={handleStartScan}>
+                  Scan Target
+                </button>
               </div>
-
             </div>
 
-
-            {/* Drive Summary */}
+            <div className="storage-path-box" style={{ marginBottom: "15px" }}>
+              <span>Target Path:</span>
+              <strong>{scanPath || "None selected"}</strong>
+              {scanResults && (
+                <span style={{ fontSize: "10px", color: "#9ca3af", marginLeft: "10px" }}>
+                  (Scanned: {new Date(scanResults.timestamp).toLocaleString()})
+                </span>
+              )}
+            </div>
 
             <div className="storage-overview-layout">
-
+              {/* Drive Details Ring */}
               <div className="storage-drive-card">
-
                 <div className="storage-drive-card-header">
-
                   <div>
-
                     <span className="storage-drive-letter">
-                      {selectedDrive}
+                      {selectedDrive || "—"}
                     </span>
-
                     <div>
-                      <strong>
-                        Local Disk
-                      </strong>
-
-                      <span>
-                        System Drive
-                      </span>
+                      <strong>{currentDriveObj?.label || "Local Disk"}</strong>
+                      <span>FileSystem: {currentDriveObj?.filesystem || "NTFS"}</span>
                     </div>
-
                   </div>
-
                   <span className="storage-drive-percent">
-                    72%
+                    {currentDriveObj ? `${currentDriveObj.percentageUsed}%` : "—"}
                   </span>
-
                 </div>
 
-
-                <div className="storage-ring">
-
+                <div className="storage-ring" style={{ margin: "20px auto" }}>
                   <div className="storage-ring-inner">
-
                     <strong>
-                      720 GB
+                      {currentDriveObj ? formatBytes(currentDriveObj.usedCapacity) : "—"}
                     </strong>
-
-                    <span>
-                      Used
-                    </span>
-
+                    <span>Used</span>
                   </div>
-
                 </div>
-
 
                 <div className="storage-drive-stats">
-
                   <div>
-                    <span>
-                      Total
-                    </span>
-
-                    <strong>
-                      1 TB
-                    </strong>
+                    <span>Total Capacity</span>
+                    <strong>{currentDriveObj ? formatBytes(currentDriveObj.totalCapacity) : "—"}</strong>
                   </div>
-
                   <div>
-                    <span>
-                      Used
-                    </span>
-
-                    <strong>
-                      720 GB
-                    </strong>
+                    <span>Used Capacity</span>
+                    <strong>{currentDriveObj ? formatBytes(currentDriveObj.usedCapacity) : "—"}</strong>
                   </div>
-
                   <div>
-                    <span>
-                      Free
-                    </span>
-
-                    <strong>
-                      280 GB
-                    </strong>
+                    <span>Free Capacity</span>
+                    <strong>{currentDriveObj ? formatBytes(currentDriveObj.freeCapacity) : "—"}</strong>
                   </div>
-
                 </div>
-
               </div>
 
-
-              {/* File Type Breakdown */}
-
+              {/* Breakdown overview panel */}
               <div className="storage-breakdown-card">
-
                 <div className="storage-panel-header">
-
                   <div>
-                    <strong>
-                      Storage Breakdown
-                    </strong>
-
-                    <p>
-                      Usage by file category
-                    </p>
+                    <strong>Folder/Drive Breakdown</strong>
+                    <p>{scanResults ? `Analyzed: ${formatBytes(scanResults.bytesAnalyzed)}` : "Target has not been scanned yet."}</p>
                   </div>
-
-                  <button>
-                    View Details
-                  </button>
-
+                  {scanResults && (
+                    <button onClick={() => setActiveTab("types")}>View Details</button>
+                  )}
                 </div>
 
-
-                <div className="storage-horizontal-chart">
-
-                  <div className="storage-chart-segment videos">
-                    58%
+                {!scanResults ? (
+                  <div style={{ padding: "40px 20px", color: "#9ca3af", textAlign: "center", fontSize: "12px" }}>
+                    Click "Scan Target" to analyze this directory's files.
                   </div>
-
-                  <div className="storage-chart-segment games">
-                    25%
-                  </div>
-
-                  <div className="storage-chart-segment pictures">
-                    11%
-                  </div>
-
-                  <div className="storage-chart-segment documents">
-                    4%
-                  </div>
-
-                  <div className="storage-chart-segment others">
-                    2%
-                  </div>
-
-                </div>
-
-
-                <div className="storage-legend">
-
-                  {fileTypes.map((item) => (
-                    <div
-                      className="storage-legend-item"
-                      key={item.name}
-                    >
-
-                      <span className="storage-legend-dot"></span>
-
-                      <span>
-                        {item.name}
-                      </span>
-
-                      <strong>
-                        {item.size}
-                      </strong>
-
+                ) : (
+                  <>
+                    {/* Visual Segment bar */}
+                    <div className="storage-horizontal-chart" style={{ display: "flex", height: "16px", borderRadius: "8px", overflow: "hidden", margin: "15px 0" }}>
+                      {getFileCategoriesList().slice(0, 5).map((item, idx) => (
+                        <div
+                          key={item.name}
+                          className={`storage-chart-segment`}
+                          style={{
+                            width: `${item.percentage || 1}%`,
+                            backgroundColor: idx === 0 ? "#3b82f6" : idx === 1 ? "#10b981" : idx === 2 ? "#f59e0b" : idx === 3 ? "#ef4444" : "#8b5cf6",
+                            color: "#fff",
+                            fontSize: "9px",
+                            textAlign: "center",
+                            lineHeight: "16px"
+                          }}
+                        >
+                          {item.percentage > 8 ? `${item.percentage}%` : ""}
+                        </div>
+                      ))}
                     </div>
-                  ))}
 
-                </div>
-
+                    <div className="storage-legend" style={{ maxHeight: "150px", overflowY: "auto" }}>
+                      {getFileCategoriesList().map((item, idx) => (
+                        <div className="storage-legend-item" key={item.name} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: "12px" }}>
+                          <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span style={{
+                              display: "inline-block", width: "8px", height: "8px", borderRadius: "50%",
+                              backgroundColor: idx === 0 ? "#3b82f6" : idx === 1 ? "#10b981" : idx === 2 ? "#f59e0b" : idx === 3 ? "#ef4444" : idx === 4 ? "#8b5cf6" : "#6b7280"
+                            }} />
+                            {item.name} ({item.count} files)
+                          </span>
+                          <strong>{formatBytes(item.size)}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
-
             </div>
 
-
-            {/* All Drives */}
-
-            <div className="storage-section-card">
-
-              <div className="storage-section-title">
-                Drive Statistics
+            {/* Drives List table */}
+            <div className="storage-section-card" style={{ marginTop: "15px" }}>
+              <div className="storage-section-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>Physical & Logical Drive Volumes</span>
+                <button className="security-small-btn" onClick={handleClearCache}>Clear Analytics Cache</button>
               </div>
 
               <div className="storage-drive-list">
-
-                {drives.map((drive) => (
+                {drivesList.map((drive) => (
                   <div
                     className="storage-drive-row"
-                    key={drive.name}
+                    key={drive.driveLetter}
+                    style={{ cursor: "pointer", display: "grid", gridTemplateColumns: "2fr 3fr 1fr 1fr 1fr" }}
+                    onClick={() => handleDriveChange(drive.driveLetter)}
                   >
-
                     <div className="storage-drive-name">
-
-                      <span className="storage-small-drive">
-                        {drive.name}
-                      </span>
-
+                      <span className="storage-small-drive">{drive.driveLetter}</span>
                       <div>
-                        <strong>
-                          {drive.label}
-                        </strong>
-
-                        <span>
-                          {drive.total} total
-                        </span>
+                        <strong>{drive.label || "Local Disk"}</strong>
+                        <span>{drive.filesystem} ({drive.driveType})</span>
                       </div>
-
                     </div>
 
-
-                    <div className="storage-row-progress">
-
+                    <div className="storage-row-progress" style={{ margin: "auto 0" }}>
                       <div className="storage-row-track">
-
                         <div
                           className="storage-row-value"
                           style={{
-                            width: `${drive.percentage}%`,
+                            width: `${drive.percentageUsed}%`,
+                            backgroundColor: drive.percentageUsed > 90 ? "#ef4444" : drive.percentageUsed > 80 ? "#f59e0b" : "#10b981"
                           }}
                         />
-
                       </div>
-
                     </div>
 
+                    <div className="storage-row-size" style={{ textAlign: "right" }}>
+                      <strong>{formatBytes(drive.usedCapacity)}</strong>
+                      <span>used</span>
+                    </div>
 
-                    <div className="storage-row-size">
+                    <div className="storage-row-free" style={{ textAlign: "right" }}>
+                      <strong>{formatBytes(drive.freeCapacity)}</strong>
+                      <span>free</span>
+                    </div>
 
-                      <strong>
-                        {drive.used}
-                      </strong>
-
-                      <span>
-                        used
+                    <div style={{ textAlign: "center", margin: "auto 0" }}>
+                      <span className={`security-badge ${drive.health === "Healthy" ? "success" : "critical"}`}>
+                        {drive.health}
                       </span>
-
                     </div>
-
-                    <div className="storage-row-free">
-
-                      <strong>
-                        {drive.free}
-                      </strong>
-
-                      <span>
-                        free
-                      </span>
-
-                    </div>
-
                   </div>
                 ))}
-
               </div>
-
             </div>
-
           </div>
         )}
 
-
         {/* =================================================
-            FILE TYPES
+            2. FILE TYPES
             ================================================= */}
-
         {activeTab === "types" && (
           <div className="storage-page">
-
             <div className="storage-page-header">
-
               <div>
-
-                <h3>
-                  File-Type Analysis
-                </h3>
-
-                <p>
-                  Understand how different file categories
-                  consume storage.
-                </p>
-
+                <h3>File-Type Distribution</h3>
+                <p>Breakdown of files in {scanPath} grouped by general categories.</p>
               </div>
-
-              <select className="storage-select">
-
-                <option>
-                  By Size
-                </option>
-
-                <option>
-                  By Count
-                </option>
-
-                <option>
-                  By Extension
-                </option>
-
-              </select>
-
             </div>
 
-
-            <div className="storage-types-layout">
-
-              {/* Chart */}
-
-              <div className="storage-large-chart-card">
-
-                <div className="storage-panel-header">
-
-                  <div>
-                    <strong>
-                      File Distribution
-                    </strong>
-
-                    <p>
-                      Total analyzed storage: 720 GB
-                    </p>
-                  </div>
-
-                </div>
-
-
-                <div className="storage-donut">
-
-                  <div className="storage-donut-center">
-
-                    <strong>
-                      720 GB
-                    </strong>
-
-                    <span>
-                      Total Used
-                    </span>
-
-                  </div>
-
-                </div>
-
+            {!scanResults ? (
+              <div style={{ padding: "60px", textAlign: "center", color: "#9ca3af" }}>
+                Please run a scan in the Overview tab to load data.
               </div>
-
-
-              {/* Categories */}
-
-              <div className="storage-type-list">
-
-                {fileTypes.map((item) => (
-                  <div
-                    className="storage-type-row"
-                    key={item.name}
-                  >
-
-                    <div className="storage-type-info">
-
-                      <span className="storage-type-icon">
-                        ▧
-                      </span>
-
-                      <div>
-
-                        <strong>
-                          {item.name}
-                        </strong>
-
-                        <span>
-                          {item.percentage}% of storage
-                        </span>
-
-                      </div>
-
+            ) : (
+              <div className="storage-types-layout" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+                {/* CSS Donut Visualizer */}
+                <div className="storage-large-chart-card" style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <div className="storage-panel-header" style={{ width: "100%" }}>
+                    <strong>Category Weights</strong>
+                  </div>
+                  
+                  <div className="storage-donut" style={{ margin: "30px 0" }}>
+                    <div className="storage-donut-center">
+                      <strong>{formatBytes(scanResults.bytesAnalyzed)}</strong>
+                      <span>Analyzed</span>
                     </div>
-
-                    <strong>
-                      {item.size}
-                    </strong>
-
                   </div>
-                ))}
+                </div>
 
+                <div className="storage-type-list">
+                  {getFileCategoriesList().map((item, idx) => (
+                    <div className="storage-type-row" key={item.name} style={{ display: "flex", justifyContent: "space-between", padding: "10px", borderBottom: "1px solid #f3f4f6", fontSize: "13px" }}>
+                      <div className="storage-type-info" style={{ display: "flex", gap: "8px" }}>
+                        <span className="storage-type-icon" style={{
+                          color: idx === 0 ? "#3b82f6" : idx === 1 ? "#10b981" : idx === 2 ? "#f59e0b" : idx === 3 ? "#ef4444" : "#8b5cf6"
+                        }}>■</span>
+                        <div>
+                          <strong>{item.name}</strong>
+                          <span style={{ fontSize: "11px", display: "block", color: "#6b7280" }}>{item.count} files ({item.percentage}% weight)</span>
+                        </div>
+                      </div>
+                      <strong>{formatBytes(item.size)}</strong>
+                    </div>
+                  ))}
+                </div>
               </div>
-
-            </div>
-
-
-            {/* Extensions */}
-
-            <div className="storage-section-card">
-
-              <div className="storage-section-title">
-                Extension Distribution
-              </div>
-
-              <div className="storage-extension-grid">
-
-                {[
-                  ["MP4", "240 GB"],
-                  ["MKV", "120 GB"],
-                  ["ZIP", "86 GB"],
-                  ["JPG", "54 GB"],
-                  ["PNG", "21 GB"],
-                  ["PDF", "18 GB"],
-                  ["EXE", "14 GB"],
-                  ["Other", "167 GB"],
-                ].map(([ext, size]) => (
-                  <div
-                    className="storage-extension-card"
-                    key={ext}
-                  >
-
-                    <strong>
-                      .{ext.toLowerCase()}
-                    </strong>
-
-                    <span>
-                      {size}
-                    </span>
-
-                  </div>
-                ))}
-
-              </div>
-
-            </div>
-
+            )}
           </div>
         )}
 
-
         {/* =================================================
-            LARGEST FILES
+            3. LARGEST FILES
             ================================================= */}
-
         {activeTab === "files" && (
           <div className="storage-page">
-
             <div className="storage-page-header">
-
               <div>
-
-                <h3>
-                  Largest Files
-                </h3>
-
-                <p>
-                  Find the files consuming the most storage.
-                </p>
-
+                <h3>Largest Files</h3>
+                <p>Review the largest individual files detected during the scan.</p>
               </div>
 
-              <div className="storage-header-actions">
-
-                <select>
-
-                  <option>
-                    Top 10
-                  </option>
-
-                  <option>
-                    Top 50
-                  </option>
-
-                  <option>
-                    Top 100
-                  </option>
-
+              <div className="storage-header-actions" style={{ display: "flex", gap: "10px" }}>
+                <select value={topFilesLimit} onChange={(e) => setTopFilesLimit(Number(e.target.value))}>
+                  <option value={10}>Top 10</option>
+                  <option value={50}>Top 50</option>
+                  <option value={100}>Top 100</option>
                 </select>
-
-                <select>
-
-                  <option>
-                    Largest First
-                  </option>
-
-                  <option>
-                    Smallest First
-                  </option>
-
+                <select value={topFilesSort} onChange={(e) => setTopFilesSort(e.target.value)}>
+                  <option value="largest">Largest First</option>
+                  <option value="smallest">Smallest First</option>
                 </select>
-
               </div>
-
             </div>
 
-
-            <div className="storage-file-table">
-
-              <div className="storage-table-header">
-
-                <span>
-                  File
-                </span>
-
-                <span>
-                  Type
-                </span>
-
-                <span>
-                  Location
-                </span>
-
-                <span>
-                  Size
-                </span>
-
-                <span>
-                  Actions
-                </span>
-
+            {!scanResults ? (
+              <div style={{ padding: "60px", textAlign: "center", color: "#9ca3af" }}>
+                Scan this directory in the Overview tab to find large files.
               </div>
-
-
-              {dynamicLargestFiles.map((file, index) => (
-                <div
-                  className="storage-file-row"
-                  key={file.name}
-                >
-
-                  <div className="storage-file-name">
-
-                    <span className="storage-file-number">
-                      {index + 1}
-                    </span>
-
-                    <div>
-
-                      <strong>
-                        {file.name}
-                      </strong>
-
-                      <span>
-                        File
-                      </span>
-
-                    </div>
-
-                  </div>
-
-
-                  <span className="storage-file-type">
-                    {file.type}
-                  </span>
-
-
-                  <span className="storage-file-path">
-                    {file.path}
-                  </span>
-
-
-                  <strong className="storage-file-size">
-                    {file.size}
-                  </strong>
-
-
-                  <div className="storage-file-actions">
-
-                    <button
-                      title="Open Location"
-                      onClick={() =>
-                        console.log("Open location")
-                      }
-                    >
-                      ↗
-                    </button>
-
-                    <button
-                      title="Move"
-                      onClick={() =>
-                        console.log("Move")
-                      }
-                    >
-                      →
-                    </button>
-
-                    <button
-                      title="Delete"
-                      onClick={() =>
-                        console.log("Delete")
-                      }
-                    >
-                      ×
-                    </button>
-
-                  </div>
-
+            ) : (
+              <div className="storage-file-table" style={{ maxHeight: "300px", overflowY: "auto" }}>
+                <div className="storage-table-header" style={{ display: "grid", gridTemplateColumns: "3fr 1fr 4fr 2fr 1fr", fontWeight: "bold", borderBottom: "1px solid #e5e7eb", padding: "8px" }}>
+                  <span>File Name</span>
+                  <span>Extension</span>
+                  <span>Full Path</span>
+                  <span>File Size</span>
+                  <span>Action</span>
                 </div>
-              ))}
 
-            </div>
-
+                {getSortedFiles().map((file, idx) => (
+                  <div key={file.path} className="storage-file-row" style={{ display: "grid", gridTemplateColumns: "3fr 1fr 4fr 2fr 1fr", padding: "8px", borderBottom: "1px solid #f3f4f6", fontSize: "11px", alignItems: "center" }}>
+                    <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <strong>{idx + 1}. {file.name}</strong>
+                    </div>
+                    <span>{file.ext.toUpperCase()}</span>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={file.path}>
+                      {file.path}
+                    </span>
+                    <strong>{formatBytes(file.size)}</strong>
+                    <div>
+                      <button
+                        className="ocr-danger-btn"
+                        style={{ padding: "2px 6px", fontSize: "10px" }}
+                        onClick={() => handleDeleteCandidate(file.path)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-
         {/* =================================================
-            LARGEST FOLDERS
+            4. LARGEST FOLDERS
             ================================================= */}
-
         {activeTab === "folders" && (
           <div className="storage-page">
-
             <div className="storage-page-header">
-
               <div>
-
-                <h3>
-                  Largest Folders
-                </h3>
-
-                <p>
-                  Analyze folders and their nested storage
-                  consumption.
-                </p>
-
+                <h3>Largest Folders</h3>
+                <p>Inspect subfolders consuming the most storage recursively.</p>
               </div>
-
-              <button className="storage-primary-btn">
-                Scan Folders
-              </button>
-
             </div>
 
-
-            <div className="storage-folder-list">
-
-              {dynamicLargestFolders.map((folder) => (
-                <div
-                  className="storage-folder-card"
-                  key={folder.name}
-                >
-
-                  <div className="storage-folder-icon">
-                    ▰
-                  </div>
-
-
-                  <div className="storage-folder-info">
-
-                    <strong>
-                      {folder.name}
-                    </strong>
-
-                    <span>
-                      {folder.path}
-                    </span>
-
-                    <small>
-                      {folder.items} items
-                    </small>
-
-                  </div>
-
-
-                  <div className="storage-folder-size">
-
-                    <strong>
-                      {folder.size}
-                    </strong>
-
-                    <span>
-                      Storage used
-                    </span>
-
-                  </div>
-
-
-                  <div className="storage-folder-actions">
-
-                    <button>
-                      Open
-                    </button>
-
-                    <button>
-                      Analyze
-                    </button>
-
-                  </div>
-
-                </div>
-              ))}
-
-            </div>
-
-
-            {/* Folder Hierarchy */}
-
-            <div className="storage-section-card">
-
-              <div className="storage-section-title">
-                Folder Hierarchy
+            {!scanResults ? (
+              <div style={{ padding: "60px", textAlign: "center", color: "#9ca3af" }}>
+                Scan folders in the Overview tab to calculate folder sizes recursively.
               </div>
-
-              <div className="storage-tree">
-
-                <div className="storage-tree-item level-0">
-                  <span>▾</span>
-                  <strong>D:\</strong>
-                  <span>1.1 TB</span>
-                </div>
-
-                <div className="storage-tree-item level-1">
-                  <span>▾</span>
-                  <strong>Videos</strong>
-                  <span>420 GB</span>
-                </div>
-
-                <div className="storage-tree-item level-2">
-                  <span>•</span>
-                  <span>Projects</span>
-                  <span>180 GB</span>
-                </div>
-
-                <div className="storage-tree-item level-2">
-                  <span>•</span>
-                  <span>Movies</span>
-                  <span>140 GB</span>
-                </div>
-
-                <div className="storage-tree-item level-1">
-                  <span>▸</span>
-                  <strong>Games</strong>
-                  <span>180 GB</span>
-                </div>
-
-                <div className="storage-tree-item level-1">
-                  <span>▸</span>
-                  <strong>Projects</strong>
-                  <span>72 GB</span>
-                </div>
-
+            ) : (
+              <div className="storage-folder-list" style={{ maxHeight: "350px", overflowY: "auto" }}>
+                {scanResults.largestFolders.map((folder, idx) => (
+                  <div className="storage-folder-card" key={folder.path} style={{ display: "flex", justifyContent: "space-between", padding: "10px", borderBottom: "1px solid #f3f4f6", alignItems: "center" }}>
+                    <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                      <span style={{ fontSize: "18px" }}>📁</span>
+                      <div>
+                        <strong>{idx + 1}. {folder.name}</strong>
+                        <span style={{ display: "block", fontSize: "11px", color: "#6b7280" }}>{folder.path}</span>
+                        <small style={{ color: "#9ca3af" }}>{folder.fileCount} nested files, {folder.subfolderCount} subfolders</small>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <strong style={{ fontSize: "14px", display: "block" }}>{formatBytes(folder.size)}</strong>
+                      <button
+                        className="ocr-danger-btn"
+                        style={{ padding: "2px 6px", fontSize: "10px", marginTop: "4px" }}
+                        onClick={() => handleDeleteCandidate(folder.path)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
-
-            </div>
-
+            )}
           </div>
         )}
 
-
         {/* =================================================
-            CLEANUP
+            5. CLEANUP CANDIDATES
             ================================================= */}
-
         {activeTab === "cleanup" && (
           <div className="storage-page">
-
             <div className="storage-page-header">
-
               <div>
-
-                <h3>
-                  Storage Cleanup
-                </h3>
-
-                <p>
-                  Find files and folders that may be consuming
-                  unnecessary storage.
-                </p>
-
+                <h3>Storage Cleanup Center</h3>
+                <p>Detect cache files, logs, temp folders, and old data for manual deletion.</p>
               </div>
-
-              <button className="storage-primary-btn">
-                Scan for Cleanup
-              </button>
-
             </div>
 
+            {!scanResults ? (
+              <div style={{ padding: "60px", textAlign: "center", color: "#9ca3af" }}>
+                Please run a scan first to populate cleanup suggestions.
+              </div>
+            ) : (
+              <div className="storage-cleanup-layout" style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "20px" }}>
+                
+                {/* Left option sidebars */}
+                <div className="storage-cleanup-options">
+                  {[
+                    { id: "temp", title: "Temporary Files", desc: "Files ending in .tmp/.temp or stored in temp folders." },
+                    { id: "cache", title: "Cache & Logs", desc: "System or app logs (.log) and local cache files." },
+                    { id: "empty", title: "Empty Folders", desc: "Directories holding 0 files and 0 subdirectories." },
+                    { id: "large", title: "Large Files (>100MB)", desc: "Very large files consuming storage." },
+                    { id: "old", title: "Old Files (>180 Days)", desc: "Files unmodified for over 6 months." }
+                  ].map((opt) => {
+                    const count = scanResults.cleanupCandidates[opt.id]?.length || 0;
+                    const sizeBytes = scanResults.cleanupCandidates[opt.id]?.reduce((acc, curr) => acc + (curr.size || 0), 0) || 0;
+                    return (
+                      <button
+                        key={opt.id}
+                        className={cleanupType === opt.id ? "storage-cleanup-option selected" : "storage-cleanup-option"}
+                        onClick={() => setCleanupType(opt.id)}
+                        style={{ width: "100%", textAlign: "left", padding: "10px", display: "flex", justifyContent: "space-between", border: "1px solid #e5e7eb", borderRadius: "6px", marginBottom: "8px", cursor: "pointer" }}
+                      >
+                        <div>
+                          <strong>{opt.title}</strong>
+                          <span style={{ display: "block", fontSize: "11px", color: "#6b7280" }}>{count} items detected</span>
+                        </div>
+                        <strong style={{ alignSelf: "center" }}>{formatBytes(sizeBytes)}</strong>
+                      </button>
+                    );
+                  })}
+                </div>
 
-            <div className="storage-cleanup-layout">
-
-              <div className="storage-cleanup-options">
-
-                {cleanupOptions.map((item) => (
-                  <button
-                    key={item.id}
-                    className={
-                      cleanupType === item.id
-                        ? "storage-cleanup-option selected"
-                        : "storage-cleanup-option"
-                    }
-                    onClick={() =>
-                      setCleanupType(item.id)
-                    }
-                  >
-
-                    <div className="storage-cleanup-icon">
-                      {item.id === "old" && "◷"}
-                      {item.id === "temporary" && "⌫"}
-                      {item.id === "large" && "⬆"}
-                      {item.id === "duplicate" && "◇"}
-                      {item.id === "empty" && "□"}
-                      {item.id === "unused" && "○"}
+                {/* Right detail view */}
+                <div className="storage-cleanup-details" style={{ border: "1px solid #e5e7eb", borderRadius: "8px", padding: "15px", maxHeight: "350px", overflowY: "auto" }}>
+                  <h4 style={{ marginBottom: "10px", borderBottom: "1px solid #e5e7eb", paddingBottom: "5px" }}>
+                    Select Deletion Candidates ({getCleanupList().length} items)
+                  </h4>
+                  
+                  {getCleanupList().length === 0 ? (
+                    <div style={{ padding: "40px", color: "#9ca3af", textAlign: "center" }}>
+                      No items found in this cleanup group.
                     </div>
-
-                    <div>
-
-                      <strong>
-                        {item.title}
-                      </strong>
-
-                      <span>
-                        {item.count} items
-                      </span>
-
-                    </div>
-
-                    <strong>
-                      {item.size}
-                    </strong>
-
-                  </button>
-                ))}
-
-              </div>
-
-
-              {/* Selected Cleanup */}
-
-              <div className="storage-cleanup-details">
-
-                <div className="storage-cleanup-detail-icon">
-                  ⌫
-                </div>
-
-                <h3>
-                  {selectedCleanup?.title}
-                </h3>
-
-                <p>
-                  {selectedCleanup?.description}
-                </p>
-
-
-                <div className="storage-cleanup-summary">
-
-                  <div>
-                    <span>
-                      Items
-                    </span>
-
-                    <strong>
-                      {selectedCleanup?.count}
-                    </strong>
-                  </div>
-
-                  <div>
-                    <span>
-                      Potential Storage
-                    </span>
-
-                    <strong>
-                      {selectedCleanup?.size}
-                    </strong>
-                  </div>
-
-                </div>
-
-
-                <button className="storage-primary-btn">
-                  View Files
-                </button>
-
-              </div>
-
-            </div>
-
-
-            {/* Recent Activity */}
-
-            <div className="storage-section-card">
-
-              <div className="storage-section-title">
-                Additional Cleanup Categories
-              </div>
-
-              <div className="storage-cleanup-extra">
-
-                <div>
-                  <span>
-                    Recently Accessed
-                  </span>
-
-                  <strong>
-                    2,481 files
-                  </strong>
-                </div>
-
-                <div>
-                  <span>
-                    Recently Modified
-                  </span>
-
-                  <strong>
-                    1,842 files
-                  </strong>
-                </div>
-
-                <div>
-                  <span>
-                    Empty Folders
-                  </span>
-
-                  <strong>
-                    218 folders
-                  </strong>
+                  ) : (
+                    getCleanupList().map((item) => (
+                      <div key={item.path} style={{ display: "flex", justifyContent: "space-between", padding: "6px", borderBottom: "1px solid #f3f4f6", fontSize: "11px", alignItems: "center" }}>
+                        <div style={{ overflow: "hidden", textOverflow: "ellipsis", marginRight: "10px" }}>
+                          <strong style={{ display: "block" }}>{item.name}</strong>
+                          <span style={{ color: "#6b7280" }}>{item.path}</span>
+                        </div>
+                        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                          <strong>{formatBytes(item.size)}</strong>
+                          <button
+                            className="ocr-danger-btn"
+                            style={{ padding: "2px 6px" }}
+                            onClick={() => handleDeleteCandidate(item.path)}
+                          >
+                            Purge
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
 
               </div>
-
-            </div>
-
+            )}
           </div>
         )}
 
-
         {/* =================================================
-            VISUALIZATION
+            6. VISUALIZATION
             ================================================= */}
-
         {activeTab === "visualization" && (
           <div className="storage-page">
-
             <div className="storage-page-header">
-
               <div>
-
-                <h3>
-                  Storage Visualization
-                </h3>
-
-                <p>
-                  Explore storage usage using different visual
-                  representations.
-                </p>
-
+                <h3>Storage Visualizer</h3>
+                <p>Toggle charts representing real scanned folder contents.</p>
               </div>
 
-              <div className="storage-chart-tabs">
-
+              <div className="storage-chart-tabs" style={{ display: "flex", gap: "5px" }}>
                 {["donut", "bar", "treemap"].map((type) => (
                   <button
                     key={type}
-                    className={
-                      chartType === type
-                        ? "active"
-                        : ""
-                    }
-                    onClick={() =>
-                      setChartType(type)
-                    }
+                    className={chartType === type ? "active" : ""}
+                    onClick={() => setChartType(type)}
+                    style={{ padding: "4px 8px", fontSize: "12px", border: "1px solid #ccc", cursor: "pointer" }}
                   >
-                    {type}
+                    {type.toUpperCase()}
                   </button>
                 ))}
-
               </div>
-
             </div>
 
-
-            {/* Visualization */}
-
-            <div className="storage-visual-card">
-
-              {chartType === "donut" && (
-                <div className="storage-visual-donut">
-
-                  <div className="storage-visual-donut-center">
-
-                    <strong>
-                      720 GB
-                    </strong>
-
-                    <span>
-                      Used
-                    </span>
-
-                  </div>
-
-                </div>
-              )}
-
-
-              {chartType === "bar" && (
-                <div className="storage-bar-chart">
-
-                  {fileTypes.map((item) => (
-                    <div
-                      className="storage-bar-item"
-                      key={item.name}
-                    >
-
-                      <div className="storage-bar-label">
-                        <span>
-                          {item.name}
-                        </span>
-
-                        <strong>
-                          {item.size}
-                        </strong>
+            {!scanResults ? (
+              <div style={{ padding: "60px", textAlign: "center", color: "#9ca3af" }}>
+                Scan a directory first to render visualizations.
+              </div>
+            ) : (
+              <div className="storage-visual-card" style={{ padding: "20px" }}>
+                {chartType === "donut" && (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    <div className="storage-visual-donut" style={{ margin: "20px 0" }}>
+                      <div className="storage-visual-donut-center">
+                        <strong>{formatBytes(scanResults.bytesAnalyzed)}</strong>
+                        <span>Total Scanned</span>
                       </div>
+                    </div>
+                  </div>
+                )}
 
-                      <div className="storage-bar-track">
-
-                        <div
-                          className="storage-bar-value"
-                          style={{
-                            width: `${item.percentage}%`,
-                          }}
-                        />
-
+                {chartType === "bar" && (
+                  <div className="storage-bar-chart" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    {getFileCategoriesList().map((item) => (
+                      <div className="storage-bar-item" key={item.name}>
+                        <div className="storage-bar-label" style={{ display: "flex", justifyContent: "space-between" }}>
+                          <span>{item.name}</span>
+                          <strong>{formatBytes(item.size)} ({item.percentage}%)</strong>
+                        </div>
+                        <div className="storage-bar-track">
+                          <div className="storage-bar-value" style={{ width: `${item.percentage}%` }} />
+                        </div>
                       </div>
-
-                    </div>
-                  ))}
-
-                </div>
-              )}
-
-
-              {chartType === "treemap" && (
-                <div className="storage-treemap">
-
-                  <div className="storage-tree-video">
-                    Videos
-                    <strong>
-                      420 GB
-                    </strong>
+                    ))}
                   </div>
+                )}
 
-                  <div className="storage-tree-games">
-                    Games
-                    <strong>
-                      180 GB
-                    </strong>
-                  </div>
-
-                  <div className="storage-tree-pictures">
-                    Pictures
-                    <strong>
-                      80 GB
-                    </strong>
-                  </div>
-
-                  <div className="storage-tree-documents">
-                    Documents
-                    <strong>
-                      25 GB
-                    </strong>
-                  </div>
-
-                  <div className="storage-tree-other">
-                    Others
-                    <strong>
-                      15 GB
-                    </strong>
-                  </div>
-
-                </div>
-              )}
-
-            </div>
-
-
-            {/* Timeline */}
-
-            <div className="storage-section-card">
-
-              <div className="storage-section-title">
-                Storage Timeline
-              </div>
-
-              <div className="storage-timeline">
-
-                <div className="storage-timeline-line"></div>
-
-                <div>
-                  <span>
-                    Jan
-                  </span>
-
-                  <strong>
-                    540 GB
-                  </strong>
-                </div>
-
-                <div>
-                  <span>
-                    Mar
-                  </span>
-
-                  <strong>
-                    580 GB
-                  </strong>
-                </div>
-
-                <div>
-                  <span>
-                    May
-                  </span>
-
-                  <strong>
-                    630 GB
-                  </strong>
-                </div>
-
-                <div>
-                  <span>
-                    Jul
-                  </span>
-
-                  <strong>
-                    680 GB
-                  </strong>
-                </div>
-
-                <div>
-                  <span>
-                    Aug
-                  </span>
-
-                  <strong>
-                    720 GB
-                  </strong>
-                </div>
-
-              </div>
-
-            </div>
-
-
-            {/* Drive Comparison */}
-
-            <div className="storage-section-card">
-
-              <div className="storage-section-title">
-                Drive Comparison
-              </div>
-
-              <div className="storage-comparison">
-
-                {drives.map((drive) => (
-                  <div
-                    className="storage-comparison-drive"
-                    key={drive.name}
-                  >
-
-                    <div>
-
-                      <strong>
-                        {drive.name}
-                      </strong>
-
-                      <span>
-                        {drive.total}
-                      </span>
-
-                    </div>
-
-                    <div className="storage-comparison-track">
-
+                {chartType === "treemap" && (
+                  <div className="storage-treemap" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "10px" }}>
+                    {getFileCategoriesList().map((item, idx) => (
                       <div
+                        key={item.name}
                         style={{
-                          width: `${drive.percentage}%`,
+                          padding: "15px",
+                          borderRadius: "6px",
+                          backgroundColor: idx === 0 ? "#3b82f6" : idx === 1 ? "#10b981" : idx === 2 ? "#f59e0b" : idx === 3 ? "#ef4444" : "#8b5cf6",
+                          color: "#fff",
+                          minHeight: "80px",
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "space-between"
                         }}
-                      />
-
-                    </div>
-
-                    <span>
-                      {drive.percentage}% used
-                    </span>
-
+                      >
+                        <strong>{item.name}</strong>
+                        <div>
+                          <strong style={{ display: "block" }}>{formatBytes(item.size)}</strong>
+                          <span style={{ fontSize: "11px" }}>{item.percentage}%</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-
+                )}
               </div>
-
-            </div>
-
+            )}
           </div>
         )}
 
       </div>
 
-
       {/* =====================================================
           FOOTER
           ===================================================== */}
-
       <div className="storage-footer">
-
         <div className="storage-footer-left">
-
-          <span>
-            Storage Analytics
-          </span>
-
-          <span>
-            •
-          </span>
-
-          <strong>
-            {tabs.find(
-              (tab) => tab.id === activeTab
-            )?.label}
-          </strong>
-
+          <span>Storage Center</span>
+          <span>•</span>
+          <strong>{tabs.find((t) => t.id === activeTab)?.label}</strong>
         </div>
-
         <div className="storage-footer-right">
-
           <span className="storage-ready-dot"></span>
-
-          <span>
-            Scanner ready
-          </span>
-
+          <span>Scanner ready</span>
         </div>
-
       </div>
 
     </div>
