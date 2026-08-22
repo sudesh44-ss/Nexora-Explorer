@@ -1,0 +1,679 @@
+/* =========================================================
+   ARCHIVE MANAGER - NEXORA DARK THEME
+   ========================================================= */
+
+.archive-manager {
+  width: 100%;
+  height: 100%;
+  min-height: 600px;
+  display: flex;
+  flex-direction: column;
+  background: var(--ai-bg-main, #090e17);
+  color: var(--ai-text-primary, #f8fafc);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* =========================================================
+   HEADER
+   ========================================================= */
+
+.archive-header {
+  min-height: 72px;
+  padding: 15px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--ai-border, rgba(255, 255, 255, 0.08));
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(12px);
+}
+
+.archive-title-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.archive-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(168, 85, 247, 0.2));
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: #60a5fa;
+  font-size: 19px;
+}
+
+.archive-title-section h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.archive-title-section p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--ai-text-muted, #94a3b8);
+}
+
+.archive-close-btn {
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ai-text-muted, #94a3b8);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.archive-close-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+/* =========================================================
+   TABS
+   ========================================================= */
+
+.archive-tabs {
+  height: 50px;
+  padding: 0 22px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid var(--ai-border, rgba(255, 255, 255, 0.08));
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.archive-tab {
+  height: 36px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ai-text-secondary, #cbd5e1);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.archive-tab:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+}
+
+.archive-tab.active {
+  background: rgba(37, 99, 235, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #93c5fd;
+  font-weight: 600;
+}
+
+/* =========================================================
+   BODY
+   ========================================================= */
+
+.archive-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: var(--ai-bg-main, #090e17);
+}
+
+/* =========================================================
+   CREATE LAYOUT
+   ========================================================= */
+
+.archive-create-layout {
+  min-height: 100%;
+  display: grid;
+  grid-template-columns: 1fr 310px;
+}
+
+.archive-create-main {
+  padding: 20px 22px;
+}
+
+.archive-section {
+  margin-bottom: 22px;
+}
+
+.archive-section-title {
+  margin-bottom: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.archive-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.archive-item-count {
+  font-size: 11.5px;
+  color: var(--ai-text-muted, #94a3b8);
+}
+
+/* =========================================================
+   DROP ZONE
+   ========================================================= */
+
+.archive-drop-zone {
+  min-height: 145px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed rgba(59, 130, 246, 0.35);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.5);
+  padding: 20px;
+  transition: all 0.15s ease;
+}
+
+.archive-drop-zone:hover {
+  background: rgba(15, 23, 42, 0.8);
+  border-color: var(--ai-blue-light, #3b82f6);
+}
+
+.archive-drop-icon {
+  width: 44px;
+  height: 44px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+  font-size: 20px;
+}
+
+.archive-drop-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.archive-drop-description {
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--ai-text-muted, #94a3b8);
+}
+
+.archive-select-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
+.archive-primary-btn,
+.archive-secondary-btn,
+.archive-cancel-btn {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.archive-primary-btn {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.archive-primary-btn:hover {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+
+.archive-secondary-btn {
+  border: 1px solid var(--ai-border, rgba(255, 255, 255, 0.1));
+  background: var(--ai-bg-elevated, #1e293b);
+  color: var(--ai-text-secondary, #cbd5e1);
+}
+
+.archive-secondary-btn:hover {
+  background: var(--ai-bg-card-hover, #17233d);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #f8fafc;
+}
+
+.archive-cancel-btn {
+  border: none;
+  background: transparent;
+  color: var(--ai-text-muted, #94a3b8);
+}
+
+.archive-cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+}
+
+/* =========================================================
+   SELECTED ITEMS
+   ========================================================= */
+
+.archive-items-empty {
+  height: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px dashed var(--ai-border, rgba(255, 255, 255, 0.08));
+  border-radius: 10px;
+  background: var(--ai-bg-card, #0f172a);
+  color: var(--ai-text-muted, #94a3b8);
+  font-size: 12px;
+}
+
+.archive-empty-icon {
+  font-size: 22px;
+  color: #64748b;
+}
+
+/* =========================================================
+   FORM
+   ========================================================= */
+
+.archive-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.archive-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.archive-form-group.full {
+  grid-column: 1 / -1;
+}
+
+.archive-form-group label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.archive-form-group input,
+.archive-form-group select {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  border: 1px solid var(--ai-border, rgba(255, 255, 255, 0.1));
+  border-radius: 7px;
+  outline: none;
+  background: var(--ai-bg-elevated, #1e293b);
+  color: #f8fafc;
+  font-size: 12.5px;
+  font-family: inherit;
+}
+
+.archive-form-group input:focus,
+.archive-form-group select:focus {
+  border-color: var(--ai-blue-light, #3b82f6);
+  box-shadow: 0 0 0 2px var(--ai-blue-glow, rgba(59, 130, 246, 0.25));
+}
+
+.archive-destination {
+  display: flex;
+  gap: 8px;
+}
+
+.archive-destination input {
+  flex: 1;
+}
+
+.archive-destination button {
+  width: 76px;
+  border: 1px solid var(--ai-border, rgba(255, 255, 255, 0.1));
+  border-radius: 7px;
+  background: var(--ai-bg-elevated, #1e293b);
+  color: #93c5fd;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.archive-destination button:hover {
+  background: var(--ai-bg-card-hover, #17233d);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #ffffff;
+}
+
+/* =========================================================
+   SETTINGS PANEL (RIGHT)
+   ========================================================= */
+
+.archive-settings {
+  padding: 20px 18px;
+  border-left: 1px solid var(--ai-border, rgba(255, 255, 255, 0.08));
+  background: rgba(15, 23, 42, 0.75);
+}
+
+.archive-settings-title {
+  margin-bottom: 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.compression-info {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--ai-border, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  background: var(--ai-bg-card, #0f172a);
+}
+
+.compression-info div {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 11.5px;
+}
+
+.compression-info span {
+  color: var(--ai-text-muted, #94a3b8);
+}
+
+.compression-info strong {
+  color: #e2e8f0;
+}
+
+.archive-settings-divider {
+  height: 1px;
+  margin: 20px 0;
+  background: var(--ai-border, rgba(255, 255, 255, 0.08));
+}
+
+/* =========================================================
+   SECURITY
+   ========================================================= */
+
+.archive-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.archive-checkbox input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--ai-blue-light, #3b82f6);
+}
+
+.password-fields {
+  margin-top: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.archive-security-note {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* =========================================================
+   EXTRACT
+   ========================================================= */
+
+.archive-operation-page {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  text-align: center;
+}
+
+.operation-icon {
+  width: 68px;
+  height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+  font-size: 28px;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+}
+
+.archive-operation-page h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.archive-operation-page p {
+  margin: 6px 0 18px;
+  font-size: 13px;
+  color: var(--ai-text-muted, #94a3b8);
+}
+
+.extract-options {
+  margin-top: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  text-align: left;
+}
+
+.archive-radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.archive-radio input {
+  accent-color: var(--ai-blue-light, #3b82f6);
+}
+
+/* =========================================================
+   MANAGE / BROWSE
+   ========================================================= */
+
+.archive-manage-page {
+  padding: 20px 22px;
+}
+
+.manage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.manage-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.manage-header p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--ai-text-muted, #94a3b8);
+}
+
+.archive-content-table {
+  min-height: 300px;
+  border: 1px solid var(--ai-border, rgba(255, 255, 255, 0.08));
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--ai-bg-card, #0f172a);
+}
+
+.archive-table-header {
+  height: 40px;
+  display: grid;
+  grid-template-columns: 1fr 100px 100px 120px;
+  align-items: center;
+  padding: 0 14px;
+  background: var(--ai-bg-elevated, #1e293b);
+  border-bottom: 1px solid var(--ai-border, rgba(255, 255, 255, 0.08));
+  color: var(--ai-text-secondary, #cbd5e1);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.archive-table-empty {
+  height: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--ai-text-muted, #94a3b8);
+  font-size: 12px;
+}
+
+.archive-table-empty div {
+  font-size: 26px;
+  color: #64748b;
+}
+
+.archive-manage-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
+
+.archive-footer {
+  min-height: 48px;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--ai-border, rgba(255, 255, 255, 0.08));
+  background: rgba(15, 23, 42, 0.85);
+}
+
+.archive-footer-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ai-text-muted, #94a3b8);
+  font-size: 11px;
+}
+
+.archive-footer-info strong {
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.footer-separator {
+  margin: 0 3px;
+  color: #475569;
+}
+
+.archive-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+
+.archive-body::-webkit-scrollbar {
+  width: 7px;
+}
+
+.archive-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.archive-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 850px) {
+  .archive-create-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .archive-settings {
+    border-top: 1px solid var(--ai-border, rgba(255, 255, 255, 0.08));
+    border-left: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .archive-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .archive-form-group.full {
+    grid-column: auto;
+  }
+
+  .archive-tabs {
+    padding: 0 10px;
+    overflow-x: auto;
+  }
+
+  .archive-footer-info {
+    display: none;
+  }
+}
